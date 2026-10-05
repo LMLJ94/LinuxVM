@@ -568,6 +568,7 @@ framing.
 ResNet18), [`compare_backbones_seeds.py`](compare_backbones_seeds.py),
 [`extract_dinov2_features.py`](extract_dinov2_features.py),
 [`extract_yolo_features.py`](extract_yolo_features.py),
+[`extract_vit_features.py`](extract_vit_features.py),
 [`plant_disease_colab_results.ipynb`](plant_disease_colab_results.ipynb)
 (ResNet34 on a Colab GPU,
 [open in Colab](https://colab.research.google.com/drive/19I2NWav7E2WoHzcIUxBogtifdL8aMfqD?usp=sharing)),
@@ -587,6 +588,7 @@ frozen backbone produces? If so, a different backbone should fix some of them.
 | DINOv2-Small (ViT-S/14) | 142M images, **self-supervised** (no labels) | 384 | ~22M |
 | YOLOv8n-cls | ImageNet, supervised (labels) | 1280 | 2.7M |
 | YOLOv8s-cls | ImageNet, supervised (labels) | 1280 | 6.4M |
+| ViT-B/16 (Google Brain) | ImageNet-21k (14M images), supervised, then ImageNet-1k | 768 | 86.6M |
 
 DINOv2 was added after MobileNet and ResNet18 tied (see below). Both of those
 learned whatever separates ImageNet's 1000 labelled classes. DINOv2 learned
@@ -601,7 +603,7 @@ The two YOLOv8 classifiers were added last, at the course's request (see
 vector of all (1280) while being the smallest network: feature width is a
 design choice, not a measure of model size.
 
-All five use the same pipeline: frozen backbone, cached features, `Linear`
+All six use the same pipeline: frozen backbone, cached features, `Linear`
 head, 40 epochs, Adam 1e-3.
 
 ### Swapping the backbone in `plant_disease_transfer.py`
@@ -653,12 +655,22 @@ seeds 0–4 on each backbone's cached features (~1 s per head):
 | DINOv2-Small | 96.7% | 96.0% | 97.3% | 0.5 | 100.0% |
 | YOLOv8n-cls | **97.3%** | 97.3% | 97.3% | 0.0 | 98.3% |
 | YOLOv8s-cls | **97.3%** | 97.3% | 97.3% | 0.0 | 100.0% |
+| ViT-B/16 | 97.1% | 96.7% | 97.3% | 0.4 | 100.0% |
 
-One test image is 0.67 percentage points. MobileNet, ResNet18 and both YOLO
-models give identical results on every seed: a linear head on frozen features
-is a convex problem, so the seed barely matters. DINOv2 is the only backbone
-whose result moves with the seed, which suggests its head may not be fully
-converged after 40 epochs.
+One test image is 0.67 percentage points. The four CNNs (MobileNet, ResNet18
+and both YOLO models) give identical results on every seed: a linear head on
+frozen features is a convex problem, so the seed barely matters. The two
+transformers (DINOv2 and ViT) are the only backbones whose result moves with
+the seed.
+
+*Correction:* an earlier version of this README suggested DINOv2's head was
+under-converged after 40 epochs. Measuring the training loss refuted that:
+both transformer heads reach the **lowest** training loss of all backbones
+(≈0.005, 100% training accuracy, vs ≈0.03 for ResNet18). The training data is
+perfectly separable in their feature spaces, so many slightly different
+boundaries fit it equally well, and the seed decides which one is learned. That
+choice tips borderline test images such as `89e92694` (wrong for ViT in 2 of 5
+seeds).
 
 **Is YOLO's lead real?** Both YOLO models make 4 errors against ResNet18's 6,
 the best result so far and stable across all seeds. But stable across seeds
@@ -678,38 +690,105 @@ is weaker still.
 The totals hide what changes per image. Errors per test image, as wrong-in-N
 of 5 seeds:
 
-| File | Actual | MobileNet | ResNet18 | DINOv2 | YOLOv8n | YOLOv8s |
-|---|---|---:|---:|---:|---:|---:|
-| `81e5fcf446a9270b` | Powdery | 5/5 | 5/5 | 5/5 | 5/5 | 5/5 |
-| `9ff7d2a548203c4b` | Powdery | 5/5 | 5/5 | 5/5 | 5/5 | 5/5 |
-| `82c3830f3bd2d1db` | Powdery | 5/5 | 5/5 | 1/5 | 5/5 | 5/5 |
-| `89e926943ba5693b` | Rust | 5/5 | 5/5 | 5/5 | – | – |
-| `87e8cb11791fd078` | Rust | – | 5/5 | – | 5/5 | – |
-| `87badaa43cc8ec92` | Powdery | – | – | – | – | 5/5 |
-| `8ddd5ec1c0de38c4` | Healthy | 5/5 | – | – | – | – |
-| `93b2a2dec65c2b43` | Rust | 5/5 | – | – | – | – |
-| `8eb3b68893378387` | Healthy | – | 5/5 | – | – | – |
-| `8e98e20ace1abaeb` | Healthy | – | – | 4/5 | – | – |
-| `91f6c89ade1cd60a` | Rust | – | – | 4/5 | – | – |
-| `80f8cdc9854f756a` | Powdery | – | – | 1/5 | – | – |
+| File | Actual | MobileNet | ResNet18 | DINOv2 | YOLOv8n | YOLOv8s | ViT-B/16 |
+|---|---|---:|---:|---:|---:|---:|---:|
+| `81e5fcf446a9270b` | Powdery | 5/5 | 5/5 | 5/5 | 5/5 | 5/5 | 5/5 |
+| `9ff7d2a548203c4b` | Powdery | 5/5 | 5/5 | 5/5 | 5/5 | 5/5 | 5/5 |
+| `82c3830f3bd2d1db` | Powdery | 5/5 | 5/5 | 1/5 | 5/5 | 5/5 | 5/5 |
+| `89e926943ba5693b` | Rust | 5/5 | 5/5 | 5/5 | – | – | 2/5 |
+| `87e8cb11791fd078` | Rust | – | 5/5 | – | 5/5 | – | – |
+| `87badaa43cc8ec92` | Powdery | – | – | – | – | 5/5 | – |
+| `8ddd5ec1c0de38c4` | Healthy | 5/5 | – | – | – | – | – |
+| `93b2a2dec65c2b43` | Rust | 5/5 | – | – | – | – | 5/5 |
+| `8eb3b68893378387` | Healthy | – | 5/5 | – | – | – | – |
+| `8e98e20ace1abaeb` | Healthy | – | – | 4/5 | – | – | – |
+| `91f6c89ade1cd60a` | Rust | – | – | 4/5 | – | – | – |
+| `80f8cdc9854f756a` | Powdery | – | – | 1/5 | – | – | – |
 
 - **Two images defeat every backbone in every seed**: `81e5fcf4` and
-  `9ff7d2a5`, **both Powdery**. These are the hard core of the dataset; five
+  `9ff7d2a5`, **both Powdery**. These are the hard core of the dataset; six
   feature extractors with very different designs and training all fail on
   them. They are the first images to inspect for label errors or genuinely
   ambiguous symptoms.
 - **The hard core shrank when YOLO was added.** `89e92694` (Rust → Powdery)
-  defeated the first three backbones but both YOLO models get it right.
+  defeated the first three backbones but both YOLO models get it right, and
+  ViT in 3 of 5 seeds.
 - **DINOv2 is the only backbone that fixes `82c3830f`** (a Powdery → Healthy
   case), in 4 of 5 seeds: the only sign so far that texture-oriented features
   help the main failure mode.
 - **Each backbone has its own unique errors.** The calyx image `8ddd5ec1`
   (Step 6, Finding 3) is a MobileNet-only error, and YOLOv8s has one error
-  (`87badaa4`) that no other backbone makes. Because the backbones fail on
+  (`87badaa4`) that no other backbone makes. ViT's only non-Powdery error,
+  `93b2a2de` (Rust), is shared with MobileNet and no one else. Because the backbones fail on
   different images, combining their predictions (an ensemble) is a plausible
   next experiment.
 - **Powdery is the hardest class for every backbone.** Of the 12 images in the
-  table, 5 are Powdery, including both of the hard core.
+  table, 5 are Powdery, including both of the hard core. `82c3830f` (Powdery)
+  defeats every backbone except DINOv2, Google's ViT included.
+
+### The original Vision Transformer (ViT-B/16, Google Brain)
+
+**File:** [`extract_vit_features.py`](extract_vit_features.py)
+
+The course suggested trying a Vision Transformer, specifically the original
+ViT from Google Brain (Dosovitskiy et al., *An Image is Worth 16x16 Words*,
+2020). It was the first model to show that the transformer architecture from
+language models works on images without any convolutions:
+
+1. The 224x224 image is cut into 16x16-pixel **patches**: a 14x14 grid, so
+   196 patches.
+2. Each patch is flattened and linearly projected to a 768-number vector, a
+   **token**, and a position embedding records where in the grid it came from.
+3. A learned extra **[CLS] token** is put in front of the 196 patch tokens.
+4. **12 transformer layers** let every token attend to every other token. A
+   CNN builds up from small neighbourhoods; in ViT, a patch in one corner can
+   use information from the opposite corner from the first layer onwards.
+5. The final [CLS] token summarises the whole image. That 768-number vector is
+   the feature used here, exactly as for the other frozen backbones.
+
+The weights are Google's own (`google/vit-base-patch16-224` on Hugging Face):
+pretrained **with labels** on ImageNet-21k (14M images, 21,000 classes), then
+fine-tuned on ImageNet-1k. ViTs need far more pretraining data than CNNs,
+because they lack a CNN's built-in assumption that nearby pixels belong
+together. DINOv2 (above) is the same kind of architecture trained by Meta
+**without** labels, so the pair separates "transformer architecture" from
+"training method".
+
+**Two details, each with a guard:**
+
+- **Which tensor is the feature.** Google's classifier reads the [CLS] token
+  after the final layer norm. Loading the checkpoint as a generic `AutoModel`
+  would instead add a "pooler" layer for which this checkpoint has no trained
+  weights, so it would be randomly initialised: features that look normal
+  and mean nothing. The script uses the classification model's own
+  transformer and checks that the model's classifier applied to the extracted
+  features reproduces the model's own output (difference: exactly 0.0).
+- **Yet another input recipe.** ViT squashes the **whole** image to 224x224
+  (no centre crop, so the aspect ratio changes) and scales pixels to −1..+1
+  (mean 0.5, std 0.5) rather than using ImageNet statistics. The values are
+  read from the model's image processor, and a guard compares the resulting
+  torchvision transform with Hugging Face's own processor on a real image.
+  On the first run this guard **fired**: 0.05% of pixel values differed by
+  exactly one grey level, because the two resize implementations round
+  differently. The tolerance was then set to "at most one grey level, on at
+  most 1% of values", which still catches a wrong normalisation or a crop.
+
+**Speed.** At 86.6M parameters (7x ResNet18), extraction ran at 4.8 images/s
+from the 1024 px working copy, against 34 images/s for YOLOv8n on the same
+files: the first backbone where the **network**, not image decoding, is the
+bottleneck on this CPU. Still only 5.5 minutes, once.
+
+**Result (5 seeds):** **97.1%** (96.7–97.3%), 4 errors by majority vote,
+validation 100%. That puts ViT in the top group with YOLOv8n/s (97.3%) and just
+above DINOv2 (96.7%).
+
+Compared image by image, ViT gets 3 images right that ResNet18 gets wrong and
+1 the other way round (exact McNemar p = 0.63); against YOLOv8n it is 1–1.
+**So ViT is as good as the best CNN here, not better.** It still fails on both
+hard-core Powdery images and on `82c3830f`, which only DINOv2 classifies
+correctly. Among the two transformers, labels did not beat self-supervision:
+DINOv2 (22M parameters, no labels) and ViT-B/16 (87M, 14M labelled images)
+are within one image of each other, and they fail on different images.
 
 ### ResNet34 on a Google Colab GPU
 
@@ -830,12 +909,13 @@ backbone beats it by a measurable margin on this test set.
 If one backbone had to be chosen for deployment, **YOLOv8n-cls** is the
 strongest candidate: the best measured accuracy (97.3%, though not
 significantly better), the smallest network (2.7M parameters, about a quarter
-of ResNet18) and stable across seeds. Confirming the lead would need a larger
+of ResNet18, and 1/32 of ViT-B/16, which scores no higher) and stable across
+seeds. Confirming the lead would need a larger
 test set or cross-validation.
 
-The backbone is not the bottleneck: six backbones from 2.5M to 22M parameters,
-trained supervised and self-supervised, all land between 96.0% and 97.3%
-(6 to 4 errors). Two Powdery images defeat every backbone. The remaining gains
+The backbone is not the bottleneck: seven backbones from 2.5M to 87M
+parameters, CNNs and transformers, trained supervised and self-supervised,
+all land between 96.0% and 97.3% (6 to 4 errors). Two Powdery images defeat every backbone. The remaining gains
 are more likely to come from the data (more mild Powdery cases) than from the
 feature extractor.
 
@@ -1176,12 +1256,19 @@ results existed and every variant must share one baseline. But a preprocessing
 effect measured on one network may not transfer to another: YOLOv8n-cls was
 trained differently and sees raw 0–1 pixels where ResNet18 sees
 ImageNet-normalised ones. So every variant was repeated on **YOLOv8n-cls**,
-the best backbone from Step 7, with its own baseline and its own input recipe:
+the best backbone from Step 7, with its own baseline and its own input recipe.
+Later, the baseline and CLAHE (the only variant that helped both CNNs) were
+also run on Google's **ViT-B/16** (Step 7), to see whether the effect holds on
+a transformer:
 
 ```bash
 python3 experiment_variants.py --backbone yolov8n_cls
+python3 experiment_variants.py --backbone vit_b16_google baseline clahe
 python3 experiment_variants.py --compare
 ```
+
+The ViT baseline run through this script reproduces Step 7 exactly (97.1%, the
+same four errors), confirming that both scripts feed ViT identical inputs.
 
 ESRGAN's upscaled images are now saved to disk (lossless PNG, keyed by a hash
 of the input pixels), so any further backbone skips the 30-minute upscaling.
@@ -1193,10 +1280,12 @@ change in the probability of the correct class, averaged over 150 test images):
 |---|---|---:|---:|---:|---:|---:|---:|---:|---:|
 | Baseline | ResNet18 | 96.0% | 6 | – | – | – | – | – | – |
 | Baseline | YOLOv8n | 97.3% | 4 | – | – | – | – | – | – |
+| Baseline | ViT-B/16 | 97.1% | 4 | – | – | – | – | – | – |
 | Leaf crop | ResNet18 | 96.0% | 6 | 0 | 0 | +0.59 pp | 0.009 | +0.88 | +0.18 |
 | Leaf crop | YOLOv8n | 96.5% | 5 | 0 | 1 | −0.02 pp | 0.67 | −0.27 | −0.51 |
 | **CLAHE** | ResNet18 | 96.5% | 5 | 1 | 0 | **+1.03 pp** | **0.0006** | +1.80 | +1.02 |
 | **CLAHE** | YOLOv8n | **97.9%** | **3** | 1 | 0 | **+0.50 pp** | **0.0004** | +0.56 | +0.95 |
+| CLAHE | ViT-B/16 | 97.3% | 4 | 1 | 1 | −0.56 pp | 0.08 | +0.21 | −0.78 |
 | 64 px + bicubic | ResNet18 | 95.1% | 8 | 1 | 3 | −4.16 pp | 0.00006 | −1.92 | −5.85 |
 | 64 px + bicubic | YOLOv8n | 96.7% | 5 | 1 | 2 | −0.31 pp | 0.006 | −0.84 | +0.15 |
 | 64 px + ESRGAN | ResNet18 | 95.7% | 6 | 1 | 1 | −1.97 pp | 0.005 | −2.96 | +1.46 |
@@ -1204,14 +1293,24 @@ change in the probability of the correct class, averaged over 150 test images):
 
 **What replicates and what does not:**
 
-- **CLAHE replicates.** On both backbones it fixes one image, introduces none,
-  and raises confidence in the correct class on clearly more images than it
-  lowers it (YOLOv8n: 82 up, 48 down; p = 0.0004). It is the only technique
-  with a positive effect on both networks. **YOLOv8n + CLAHE reaches 97.9%
+- **CLAHE replicates on both CNNs, but not on the transformer.** On ResNet18
+  and YOLOv8n it fixes one image, introduces none, and raises confidence in
+  the correct class on clearly more images than it lowers it (YOLOv8n: 82 up,
+  48 down; p = 0.0004). It is the only technique with a positive effect on
+  both CNNs. **YOLOv8n + CLAHE reaches 97.9%
   (3 errors), the best result in the project.** Two caveats: on YOLOv8n the
   average size of the gain is uncertain (95% CI −0.43 to +1.81 pp; the
   direction is consistent, the magnitude is not pinned down), and the three
   Powdery errors that remain are the same hard images as before.
+- **On ViT-B/16, CLAHE does nothing useful.** Accuracy rises from 97.1% to
+  97.3%, but only because the seed-dependence disappears: CLAHE fixes one Rust
+  image (`93b2a2de`) and breaks another (`89e92694`, which was already
+  borderline at 2/5 seeds), so the error count stays at 4. Confidence in the
+  correct class falls slightly (−0.56 pp, 63 up, 79 down) and the change is
+  not significant (p = 0.08). Why the transformer reacts differently is not
+  established here. One plausible reason: CLAHE works on local tiles and
+  sharpens local texture, which a CNN's small convolution filters read
+  directly, whereas ViT's features come from attention over the whole image.
 - **Leaf crop does not replicate.** The small confidence gain on ResNet18
   (+0.59 pp) disappears on YOLOv8n (−0.02 pp, p = 0.67), which also gains one
   new error. The 8a effect was specific to ResNet18; overall, cropping to the
@@ -1230,15 +1329,16 @@ change in the probability of the correct class, averaged over 150 test images):
 
 **The lesson for Step 8:** effects of around ±1 percentage point of confidence
 can depend on the backbone, so a preprocessing result measured on one network
-is a hypothesis about another, not a fact. Here, only CLAHE's benefit and
-ESRGAN's harm survive the change of backbone.
+is a hypothesis about another, not a fact. ESRGAN's calyx error survives the
+change from ResNet18 to YOLOv8n (ESRGAN was not run on ViT). CLAHE's benefit holds for both CNNs
+but not for ViT: it depends on the type of network, not just on the images.
 
 ### Status of the techniques
 
 | Technique | Status | Effect |
 |---|---|---|
 | Thresholding + cropping | **Tested (8a, 8d)** | No reliable effect: +0.6 pp confidence on ResNet18, none on YOLOv8n (and one new error) |
-| CLAHE | **Tested (8b, 8d)** | **Small positive effect on both backbones**: 1 fixed, 0 new each; confidence +1.0 pp (ResNet18) and +0.5 pp (YOLOv8n). YOLOv8n + CLAHE = 97.9%, best result |
+| CLAHE | **Tested (8b, 8d)** | **Small positive effect on both CNNs**: 1 fixed, 0 new each; confidence +1.0 pp (ResNet18) and +0.5 pp (YOLOv8n). YOLOv8n + CLAHE = 97.9%, best result. **No benefit on ViT-B/16** (1 fixed, 1 new; −0.56 pp, n.s.) |
 | Background blur (GrabCut mask) | Candidate; needs the shortcut check | – |
 | Denoising | Planned | – |
 | Edge map as input | Planned | – |
@@ -1258,7 +1358,8 @@ python3 analyze_errors.py           # Step 6: error analysis (~10s, needs Step 5
 python3 experiment_preprocessing.py # Step 6: preprocessing A/B test (~3m)
 python3 extract_dinov2_features.py  # Step 7: cache DINOv2-Small features (needs `transformers`)
 python3 extract_yolo_features.py    # Step 7: cache YOLOv8n/s-cls features (~2m, needs Step 8's working copy)
-python3 compare_backbones_seeds.py  # Step 7: 5 backbones x 5 seeds + per-image table, from caches (~30s)
+python3 extract_vit_features.py     # Step 7: cache Google ViT-B/16 features (~6m, needs `transformers`)
+python3 compare_backbones_seeds.py  # Step 7: 6 backbones x 5 seeds + per-image table, from caches (~40s)
 # Step 7, ResNet34 on GPU: open plant_disease_colab.ipynb in Google Colab
 #   (Runtime -> T4 GPU), with archive.zip in My Drive/ComputerVision/ (~4m)
 python3 experiment_variants.py      # Step 8: all preprocessing variants (~7m first run)
@@ -1297,11 +1398,13 @@ or normalisation.
 | 6 | *Error analysis — no new training* | Plant disease | — | 96.7% best variant |
 | 7 | ResNet18 / DINOv2-Small (frozen) + linear head | Plant disease | 40 | 96.0% / 96.7% (5 seeds) |
 | 7 | ResNet34 (frozen) + linear head, Colab T4 GPU | Plant disease | 40 | 96.0% (1 run) |
+| 7 | ViT-B/16, Google Brain (frozen) + linear head | Plant disease | 40 | 97.1% (5 seeds) |
 | 7 | **YOLOv8n-cls / YOLOv8s-cls (frozen) + linear head** | Plant disease | 40 | **97.3%** (5 seeds; not significantly above 96.0%) |
 | 8a | ResNet18 (frozen) + leaf crop (GrabCut) | Plant disease | 40 | 96.0% (5 seeds; baseline also 96.0%) |
 | 8b | ResNet18 (frozen) + CLAHE on lightness | Plant disease | 40 | 96.5% (5 seeds; confidence +1.0 pp, p = 0.0006) |
 | 8c | ResNet18 (frozen), 64 px + bicubic / + ESRGAN | Plant disease | 40 | 95.1% / 95.7% (5 seeds; full resolution 96.0%) |
 | 8d | **YOLOv8n-cls (frozen) + CLAHE** | Plant disease | 40 | **97.9%** (5 seeds; YOLOv8n baseline 97.3%) |
+| 8d | ViT-B/16 (frozen) + CLAHE | Plant disease | 40 | 97.3% (5 seeds; ViT baseline 97.1%; 4 errors in both) |
 
 ### What this project demonstrates
 
@@ -1322,6 +1425,9 @@ or normalisation.
 - Comparing models over several seeds and per image rather than by one
   accuracy number, which exposed a one-image "win" as random-number noise and
   showed that tied backbones fail on different images (Step 7)
+- Comparing CNNs with Vision Transformers (Google's ViT, Meta's DINOv2) under
+  identical conditions, with guards that verify each model's feature tensor
+  and input recipe (Step 7)
 - Checking whether a lead is real with a paired test on the images two models
   disagree on, rather than trusting a higher number (Step 7)
 - Moving a step to a cloud GPU (Google Colab) when the local machine has none,

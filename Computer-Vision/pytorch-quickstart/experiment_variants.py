@@ -25,6 +25,7 @@ Improvements over the Step-6 CenterCrop test (experiment_preprocessing.py):
 Run:  python3 experiment_variants.py                          (all variants, ResNet18)
       python3 experiment_variants.py leaf_crop clahe          (just some)
       python3 experiment_variants.py --backbone yolov8n_cls   (other backbone)
+      python3 experiment_variants.py --backbone vit_b16_google baseline clahe
       python3 experiment_variants.py --compare                (backbones side by side)
 Features are cached in feature_cache_variants/<backbone>/<variant>/; delete a
 variant's folder after changing its function. Results are stored per backbone
@@ -231,9 +232,35 @@ def _yolov8n_cls():
     return extractor, preprocess
 
 
+class _ViTFeatures(nn.Module):
+    """[CLS] token after the final layer norm, as in extract_vit_features.py."""
+
+    def __init__(self, model):
+        super().__init__()
+        self.model = model
+
+    def forward(self, pixels):
+        from extract_vit_features import features
+        return features(self.model, pixels)
+
+
+def _vit_b16_google():
+    # Same model, recipe and guards as Step 7's extract_vit_features.py.
+    from transformers import AutoImageProcessor, ViTForImageClassification
+    from extract_vit_features import HF_MODEL_ID, build_preprocess, check_preprocess
+    processor = AutoImageProcessor.from_pretrained(HF_MODEL_ID)
+    model = ViTForImageClassification.from_pretrained(HF_MODEL_ID).eval()
+    for p in model.parameters():
+        p.requires_grad = False
+    preprocess = build_preprocess(processor)
+    check_preprocess(preprocess, processor, next((WORK_ROOT / "Test" / "Test" / "Powdery").glob("*.jpg")))
+    return _ViTFeatures(model), preprocess
+
+
 BACKBONES = {
     "resnet18": _resnet18,
     "yolov8n_cls": _yolov8n_cls,
+    "vit_b16_google": _vit_b16_google,
 }
 
 

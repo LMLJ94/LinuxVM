@@ -14,7 +14,8 @@ frozen features are known to be strong on fine texture. Run
 extract_dinov2_features.py once first to create its cache.
 
 YOLOv8n-cls and YOLOv8s-cls were added after that, as frozen backbones. Run
-extract_yolo_features.py once first to create their caches.
+extract_yolo_features.py once first to create their caches. Google's original
+Vision Transformer (ViT-B/16) came last; run extract_vit_features.py first.
 
 Besides the accuracy summary, it prints which test images each backbone gets
 wrong (in how many of the seeds), because tied totals can hide different errors.
@@ -44,6 +45,8 @@ CACHES = {
     # Created by extract_yolo_features.py
     "YOLOv8n-cls": Path("feature_cache_yolov8n_cls"),
     "YOLOv8s-cls": Path("feature_cache_yolov8s_cls"),
+    # Created by extract_vit_features.py (Google's original ViT-B/16)
+    "ViT-B/16": Path("feature_cache_vit_b16_google"),
 }
 TEST_DIR = Path("/home/louise/Code/LinuxVM/Computer-Vision/images/original/Test/Test")
 
