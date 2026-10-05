@@ -4,8 +4,8 @@ Preprocessing experiments: does <technique> help this classifier?
 The teacher's list (CLAHE, cropping, denoising, super-resolution, edges, ...)
 is tested here one variant at a time. Each variant is a function
 bgr_image -> bgr_image applied BEFORE the usual model preprocessing
-(Resize(256) -> CenterCrop(224) -> Normalize). Everything else is held fixed:
-frozen ResNet18, linear head, 40 epochs, the same 5 seeds.
+(each backbone's own resize/crop/normalise recipe). Everything else is held
+fixed: frozen backbone, linear head, 40 epochs, the same 5 seeds.
 
 Improvements over the Step-6 CenterCrop test (experiment_preprocessing.py):
 
@@ -18,10 +18,17 @@ Improvements over the Step-6 CenterCrop test (experiment_preprocessing.py):
      and every variant (including the baseline) is built from that copy. The
      baseline is re-run from the copy too, so all variants share one source.
 
-Run:  python3 experiment_variants.py            (all variants in VARIANTS)
-      python3 experiment_variants.py leaf_crop  (just some)
-Each variant's features are cached in feature_cache_variants/<name>/; delete a
-variant's folder after changing its function.
+  4. A second backbone. A preprocessing effect measured on one backbone may not
+     hold on another (YOLO sees raw 0-1 pixels, ResNet ImageNet-normalised
+     ones), so every variant can be repeated on YOLOv8n-cls.
+
+Run:  python3 experiment_variants.py                          (all variants, ResNet18)
+      python3 experiment_variants.py leaf_crop clahe          (just some)
+      python3 experiment_variants.py --backbone yolov8n_cls   (other backbone)
+      python3 experiment_variants.py --compare                (backbones side by side)
+Features are cached in feature_cache_variants/<backbone>/<variant>/; delete a
+variant's folder after changing its function. Results are stored per backbone
+in experiment_variants_results.json.
 """
 
 import json
@@ -52,8 +59,8 @@ CLASSES = ["Healthy", "Powdery", "Rust"]
 
 WORK_SHORT = 1024  # working-copy short side; > 4x the model's 224, so no detail the model could use is lost
 WORK_JPEG_QUALITY = 92
-BACKBONE_NAME = "resnet18"
 NUM_WORKERS = 4
+ESRGAN_CACHE = Path("/home/louise/Code/LinuxVM/Computer-Vision/images/variant_cache/lowres_esrgan")
 
 # Same recipe as plant_disease_transfer.py / compare_backbones_seeds.py
 HEAD_EPOCHS = 40
@@ -61,7 +68,7 @@ HEAD_BATCH = 64
 HEAD_LR = 1e-3
 SEEDS = [0, 1, 2, 3, 4]
 
-model_preprocess = transforms.Compose([
+IMAGENET_PREPROCESS = transforms.Compose([
     transforms.Resize(256),
     transforms.CenterCrop(224),
     transforms.ToTensor(),
@@ -84,9 +91,67 @@ def leaf_crop(bgr):
     return crop_to_leaf(bgr)
 
 
+# CLAHE settings are fixed in advance (common defaults), not tuned: trying
+# several and keeping the best would be tuning on the test set.
+CLAHE_CLIP_LIMIT = 2.0
+CLAHE_TILE_GRID = (8, 8)
+
+
+def clahe(bgr):
+    """Contrast Limited Adaptive Histogram Equalization on lightness only.
+
+    Equalising B, G and R separately would shift colours, and colour is how
+    rust (orange) is told apart from healthy (green). LAB separates lightness
+    (L) from colour (A, B), so only L is equalised.
+    """
+    l, a, b = cv.split(cv.cvtColor(bgr, cv.COLOR_BGR2LAB))
+    l = cv.createCLAHE(clipLimit=CLAHE_CLIP_LIMIT, tileGridSize=CLAHE_TILE_GRID).apply(l)
+    return cv.cvtColor(cv.merge([l, a, b]), cv.COLOR_LAB2BGR), False
+
+
+# Super-resolution needs something to recover. The working copy (1024 px) is
+# already 4x larger than the model input, so ESRGAN is tested on a SIMULATED
+# low-resolution camera: shrink to LOWRES_SHORT px, then upscale 4x back to
+# 256 px (exactly the pipeline's Resize(256)). Bicubic upscaling is the
+# control: it shows how much the low resolution costs, so the ESRGAN result
+# can be read as "how much of that loss does it win back".
+LOWRES_SHORT = 64
+
+
+def _shrink(bgr):
+    h, w = bgr.shape[:2]
+    s = LOWRES_SHORT / min(h, w)
+    return cv.resize(bgr, (round(w * s), round(h * s)), interpolation=cv.INTER_AREA)
+
+
+def lowres_bicubic(bgr):
+    small = _shrink(bgr)
+    h, w = small.shape[:2]
+    return cv.resize(small, (w * 4, h * 4), interpolation=cv.INTER_CUBIC), False
+
+
+def lowres_esrgan(bgr):
+    """ESRGAN costs ~3 s per image, so its output is saved to disk and reused by
+    every backbone. The key is a hash of the input pixels, so a changed working
+    copy or a changed LOWRES_SHORT can never pick up a stale result."""
+    import hashlib
+    small = _shrink(bgr)
+    cached = ESRGAN_CACHE / f"{hashlib.sha1(small.tobytes()).hexdigest()}.png"
+    if cached.exists():
+        return cv.imread(str(cached)), False
+    from esrgan import upscale_x4  # imported here so other variants never load the weights
+    up = upscale_x4(small)
+    cached.parent.mkdir(parents=True, exist_ok=True)
+    cv.imwrite(str(cached), up)  # PNG: lossless, so the cached result is exact
+    return up, False
+
+
 VARIANTS = {
     "baseline": baseline,
     "leaf_crop": leaf_crop,
+    "clahe": clahe,
+    "lowres_bicubic": lowres_bicubic,
+    "lowres_esrgan": lowres_esrgan,
 }
 
 
@@ -127,9 +192,10 @@ def make_working_copy():
 # Feature extraction per variant
 # ---------------------------------------------------------------------------
 class VariantDataset(Dataset):
-    def __init__(self, split, variant_fn):
+    def __init__(self, split, variant_fn, preprocess):
         self.items = list_images(split)
         self.variant_fn = variant_fn
+        self.preprocess = preprocess
 
     def __len__(self):
         return len(self.items)
@@ -139,32 +205,48 @@ class VariantDataset(Dataset):
         bgr = cv.imread(str(WORK_ROOT / src.relative_to(DATA_ROOT)))
         bgr, fallback = self.variant_fn(bgr)
         rgb = Image.fromarray(cv.cvtColor(bgr, cv.COLOR_BGR2RGB))
-        return model_preprocess(rgb), label, fallback
+        return self.preprocess(rgb), label, fallback
 
 
 def _worker_init(_):
-    cv.setNumThreads(1)  # 4 workers x OpenCV's own threads would oversubscribe the CPU
+    # 4 workers x OpenCV's/PyTorch's own threads would oversubscribe the CPU
+    cv.setNumThreads(1)
+    torch.set_num_threads(1)
 
 
-def build_backbone():
+def _resnet18():
     backbone = models.resnet18(weights=ResNet18_Weights.IMAGENET1K_V1)
     backbone.fc = nn.Identity()
     backbone.eval()
     for p in backbone.parameters():
         p.requires_grad = False
-    return backbone
+    return backbone, IMAGENET_PREPROCESS
+
+
+def _yolov8n_cls():
+    # Same extractor (and the same guard) as Step 7's extract_yolo_features.py.
+    # The recipe comes from the model itself: no ImageNet mean/std.
+    from extract_yolo_features import build_extractor
+    extractor, _, _, preprocess = build_extractor("yolov8n-cls.pt")
+    return extractor, preprocess
+
+
+BACKBONES = {
+    "resnet18": _resnet18,
+    "yolov8n_cls": _yolov8n_cls,
+}
 
 
 @torch.no_grad()
-def extract(backbone, variant, split):
-    cache_file = CACHE_ROOT / variant / f"{split}.pt"
+def extract(backbone_name, backbone, preprocess, variant, split):
+    cache_file = CACHE_ROOT / backbone_name / variant / f"{split}.pt"
     if cache_file.exists():
         blob = torch.load(cache_file, weights_only=True)
-        if blob["backbone"] != BACKBONE_NAME or blob["variant"] != variant:
+        if blob["backbone"] != backbone_name or blob["variant"] != variant:
             raise RuntimeError(f"{cache_file} is stale; delete {cache_file.parent}/")
         return blob
 
-    dataset = VariantDataset(split, VARIANTS[variant])
+    dataset = VariantDataset(split, VARIANTS[variant], preprocess)
     loader = DataLoader(dataset, batch_size=32, num_workers=NUM_WORKERS,
                         worker_init_fn=_worker_init)
     feats, labels, fallbacks = [], [], []
@@ -178,7 +260,7 @@ def extract(backbone, variant, split):
         "labels": torch.cat(labels),
         "fallback": torch.cat(fallbacks),
         "files": [p.stem for p, _ in dataset.items],
-        "backbone": BACKBONE_NAME,
+        "backbone": backbone_name,
         "variant": variant,
     }
     cache_file.parent.mkdir(parents=True, exist_ok=True)
@@ -213,16 +295,25 @@ def predict(head, features):
     return head(features).argmax(1)
 
 
-def run_variant(backbone, variant):
-    train = extract(backbone, variant, "train")
-    val = extract(backbone, variant, "val")
-    test = extract(backbone, variant, "test")
+@torch.no_grad()
+def prob_of_actual(head, features, labels):
+    """The probability the head gives to the CORRECT class, per image."""
+    head.eval()
+    return head(features).softmax(1)[torch.arange(len(labels)), labels]
+
+
+def run_variant(backbone_name, backbone, preprocess, variant):
+    train = extract(backbone_name, backbone, preprocess, variant, "train")
+    val = extract(backbone_name, backbone, preprocess, variant, "val")
+    test = extract(backbone_name, backbone, preprocess, variant, "test")
 
     test_preds = []  # [seed][image]
+    p_actual = []  # [seed][image]
     val_accs = []
     for seed in SEEDS:
         head = train_head(train["features"], train["labels"], seed)
         test_preds.append(predict(head, test["features"]))
+        p_actual.append(prob_of_actual(head, test["features"], test["labels"]))
         val_accs.append((predict(head, val["features"]) == val["labels"]).float().mean().item())
     test_preds = torch.stack(test_preds)
     correct = test_preds == test["labels"]
@@ -253,14 +344,45 @@ def run_variant(backbone, variant):
         "errors": errors,
         "fallback": fallback_counts,
         "n_test": len(test["labels"]),
+        "test_labels": test["labels"].tolist(),
+        # Mean over seeds; used for the paired confidence comparison in report()
+        "test_p_actual": [round(p, 5) for p in torch.stack(p_actual).mean(0).tolist()],
     }
 
 
-def report(results):
+def confidence_vs_baseline(r, base):
+    """Paired comparison of P(correct class) per image, variant vs baseline.
+
+    Accuracy only changes when an image crosses the 50% line, so with ~6
+    errors in 150 it barely moves. The probability the model gives to the
+    correct class responds to every image, so it shows smaller effects. Each
+    test image is compared with itself (a paired test), and the Wilcoxon
+    signed-rank test asks whether the ups and downs could be chance.
+    """
+    from scipy.stats import wilcoxon
+    v = torch.tensor(r["test_p_actual"])
+    b = torch.tensor(base["test_p_actual"])
+    d = v - b
+    _, p = wilcoxon(v.numpy(), b.numpy())
+    gen = torch.Generator().manual_seed(0)
+    boots = sorted(d[torch.randint(0, len(d), (len(d),), generator=gen)].mean().item()
+                   for _ in range(5000))
+    labels = torch.tensor(r["test_labels"])
+    per_class = {c: round(d[labels == k].mean().item() * 100, 2) for k, c in enumerate(CLASSES)}
+    return {
+        "higher": int((d > 0).sum()), "lower": int((d < 0).sum()),
+        "mean_pp": d.mean().item() * 100,
+        "ci_pp": (boots[125] * 100, boots[4875] * 100),
+        "p": p, "per_class_pp": per_class,
+    }
+
+
+def report(results, backbone_name):
     base = results.get("baseline")
     n = next(iter(results.values()))["n_test"]
     print("\n" + "=" * 72)
-    print(f"RESULTS  ({len(SEEDS)} seeds, {n} test images, 1 image = {100 / n:.2f} pp)")
+    print(f"RESULTS {backbone_name}  ({len(SEEDS)} seeds, {n} test images, "
+          f"1 image = {100 / n:.2f} pp)")
     print("=" * 72)
     print(f"{'Variant':<14} {'val':>6} {'test mean':>10} {'min':>6} {'max':>6} {'errors':>7}")
     for name, r in results.items():
@@ -279,17 +401,57 @@ def report(results):
         if base and name != "baseline":
             fixed = [f for f in base["errors"] if f not in r["errors"]]
             print(f"  fixed vs baseline: {', '.join(fixed) if fixed else 'none'}")
+        if base and name != "baseline" and "test_p_actual" in r and "test_p_actual" in base:
+            c = confidence_vs_baseline(r, base)
+            print(f"  P(correct class) vs baseline: higher on {c['higher']}, lower on {c['lower']} "
+                  f"of {n}; mean {c['mean_pp']:+.2f} pp (95% CI {c['ci_pp'][0]:+.2f} to "
+                  f"{c['ci_pp'][1]:+.2f}); Wilcoxon p = {c['p']:.2g}")
+            print(f"    per class (pp): {c['per_class_pp']}")
         if any(v.split("/")[0] != "0" for s in r["fallback"].values() for v in s.values()):
             print(f"  fallback (technique not applied), per class: {r['fallback']}")
 
 
+def compare_backbones(all_results):
+    """Each variant's effect, measured against its OWN backbone's baseline."""
+    print("\n" + "=" * 96)
+    print("EFFECT OF EACH VARIANT, PER BACKBONE (vs that backbone's own baseline)")
+    print("=" * 96)
+    print(f"{'Variant':<15} {'Backbone':<12} {'test':>6} {'errors':>7} {'fixed':>6} {'new':>4} "
+          f"{'conf. change':>13} {'p':>8} {'Powdery':>8} {'Rust':>7}")
+    for variant in VARIANTS:
+        for backbone_name, results in all_results.items():
+            r, base = results.get(variant), results.get("baseline")
+            if r is None or base is None:
+                continue
+            fixed = sum(f not in r["errors"] for f in base["errors"])
+            new = sum(f not in base["errors"] for f in r["errors"])
+            line = (f"{variant:<15} {backbone_name:<12} {r['test_acc_mean'] * 100:5.1f}% "
+                    f"{len(r['errors']):>7} {fixed:>6} {new:>4}")
+            if variant != "baseline":
+                c = confidence_vs_baseline(r, base)
+                line += (f" {c['mean_pp']:>+10.2f} pp {c['p']:>8.2g} "
+                         f"{c['per_class_pp']['Powdery']:>+8.2f} {c['per_class_pp']['Rust']:>+7.2f}")
+            print(line)
+
+
 if __name__ == "__main__":
-    chosen = sys.argv[1:] or list(VARIANTS)
+    args = sys.argv[1:]
+    all_results = json.loads(RESULTS_FILE.read_text()) if RESULTS_FILE.exists() else {}
+    if "--compare" in args:
+        compare_backbones(all_results)
+        sys.exit()
+    backbone_name = "resnet18"
+    if "--backbone" in args:
+        i = args.index("--backbone")
+        backbone_name = args[i + 1]
+        del args[i:i + 2]
+    chosen = args or list(VARIANTS)
+
     make_working_copy()
-    backbone = build_backbone()
-    results = json.loads(RESULTS_FILE.read_text()) if RESULTS_FILE.exists() else {}
+    backbone, preprocess = BACKBONES[backbone_name]()
+    results = all_results.setdefault(backbone_name, {})
     for variant in chosen:
-        print(f"\nVariant: {variant}")
-        results[variant] = run_variant(backbone, variant)
-    RESULTS_FILE.write_text(json.dumps(results, indent=2))
-    report({k: results[k] for k in VARIANTS if k in results})
+        print(f"\nVariant: {variant}  (backbone {backbone_name})")
+        results[variant] = run_variant(backbone_name, backbone, preprocess, variant)
+        RESULTS_FILE.write_text(json.dumps(all_results, indent=2))  # save after each variant
+    report({k: results[k] for k in VARIANTS if k in results}, backbone_name)

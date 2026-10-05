@@ -651,7 +651,7 @@ seeds 0–4 on each backbone's cached features (~1 s per head):
 | MobileNetV3-Small | 96.0% | 96.0% | 96.0% | 0.0 | 100.0% |
 | ResNet18 | 96.0% | 96.0% | 96.0% | 0.0 | 100.0% |
 | DINOv2-Small | 96.7% | 96.0% | 97.3% | 0.5 | 100.0% |
-| YOLOv8n-cls | **97.3%** | 97.3% | 97.3% | 0.0 | 100.0% |
+| YOLOv8n-cls | **97.3%** | 97.3% | 97.3% | 0.0 | 98.3% |
 | YOLOv8s-cls | **97.3%** | 97.3% | 97.3% | 0.0 | 100.0% |
 
 One test image is 0.67 percentage points. MobileNet, ResNet18 and both YOLO
@@ -882,8 +882,18 @@ harness fixes both weaknesses:
    segmentation finds nothing), the image passes through unchanged and this is
    counted **per class**. A failure rate that differs by class can become a
    shortcut the model learns.
+5. **Confidence in the correct class, not just accuracy** (added with 8b).
+   Accuracy only changes when an image crosses the 50% line, so with ~6
+   errors in 150 it is a coarse measure. The probability the model gives to
+   the correct class responds to every image. For each test image this
+   probability (averaged over the 5 seeds) is compared with the same image in
+   the baseline: a **paired** comparison. The Wilcoxon signed-rank test asks
+   whether the ups and downs could be chance, and a bootstrap gives a 95%
+   confidence interval for the average change. Comparing all 150 images, not
+   just the baseline's errors, matters: images selected for being badly wrong
+   tend to look better under *any* change (regression to the mean).
 
-Everything else is fixed: frozen ResNet18, linear head, 40 epochs, Adam 1e-3,
+Everything else is fixed (8a–8c; 8d repeats everything on YOLOv8n): frozen ResNet18, linear head, 40 epochs, Adam 1e-3,
 followed by the standard `Resize(256)` → `CenterCrop(224)` → `Normalize`.
 
 A note on the baseline: the backbone is ResNet18 (Step 7), so its six errors
@@ -967,16 +977,25 @@ image height.
 | Baseline | 100.0% | 96.0% (96.0–96.0) | 6 | – | – |
 | Leaf crop | 96.7% | 96.0% (96.0–96.0) | 6 | 0 | 0 |
 
-**No measurable effect.** The same six images are wrong in both variants, in
-5/5 seeds. The only change is that `81e5fcf4` flips from "Rust" to "Healthy",
-and it is still wrong. The validation drop is 2 images out of 60, which is
-noise.
+**No measurable effect on accuracy.** The same six images are wrong in both
+variants, in 5/5 seeds. The only change is that `81e5fcf4` flips from "Rust"
+to "Healthy", and it is still wrong. The validation drop is 2 images out of
+60, which is noise.
 
-**Conclusion.** Cropping to the leaf does not help this dataset, for two
-reasons that are both visible above: the photos are already framed tightly
-around the leaf, and the error that motivated it (the calyx) does not occur
-with the ResNet18 backbone. This matches the Step-6 CenterCrop result from the
-other direction: framing is not what limits this model.
+**A small effect on confidence** (measured later, when the confidence
+comparison was added for 8b): with the leaf crop, the probability of the
+correct class rose on 82 test images and fell on 62, by **+0.59 percentage
+points** on average (95% CI +0.12 to +1.17; Wilcoxon p = 0.009). That is real
+in the statistical sense but far too small to move any image across the
+decision line. A plausible cause is that the crop zooms in slightly, so the
+leaf's texture occupies a few more of the 224 pixels.
+
+**Conclusion.** Cropping to the leaf does not measurably improve accuracy on
+this dataset, for two reasons that are both visible above: the photos are
+already framed tightly around the leaf, and the error that motivated it (the
+calyx) does not occur with the ResNet18 backbone. This matches the Step-6
+CenterCrop result from the other direction: framing is not what limits this
+model.
 
 Two findings are worth keeping regardless:
 
@@ -988,16 +1007,242 @@ Two findings are worth keeping regardless:
   model, and that correlates with the label. Such a variant must be checked for
   this shortcut, not just for accuracy.
 
+### 8b — CLAHE (local contrast enhancement)
+
+**Hypothesis.** Powdery mildew is a faint whitish film on a green leaf, a
+low-contrast signal, and Step 6 found that glare and overexposure hide it.
+CLAHE (Contrast Limited Adaptive Histogram Equalization) stretches contrast
+locally, tile by tile, and caps the amplification so noise does not explode.
+If faint mildew is what the model misses, CLAHE should help Powdery most.
+
+**Implementation** (`clahe()` in
+[`experiment_variants.py`](experiment_variants.py)):
+
+- Applied to the **lightness channel only**: the image is converted to LAB,
+  CLAHE runs on L, and A/B (colour) are left untouched. Equalising R, G and B
+  separately would shift colours, and colour is how rust is told from healthy.
+- Settings fixed in advance at common defaults, `clipLimit=2.0` and an 8×8
+  tile grid, applied to the 1024 px working copy. Trying several settings and
+  keeping the best would be tuning on the test set.
+
+![CLAHE preview](figures/clahe_preview.jpg)
+
+*Pairs: the model's input in the baseline (left) and with CLAHE (right), for
+the ResNet18 baseline errors and YOLOv8s's one unique error. On `9ff7d2a5`
+(top middle), one of the two images every backbone gets wrong, the whitish
+mildew patches are visibly clearer. The rust spot on `87e8cb11` keeps its
+colour.*
+
+**Result:**
+
+| Variant | Validation | Test, mean (min–max) over 5 seeds | Errors | Fixed | New |
+|---|---:|---:|---:|---:|---:|
+| Baseline | 100.0% | 96.0% (96.0–96.0) | 6 | – | – |
+| CLAHE | 100.0% | **96.5%** (96.0–96.7) | 5 | 1 | 0 |
+
+CLAHE fixes `8eb3b688` (a Healthy leaf the baseline called Powdery) in 4 of 5
+seeds and introduces no new errors, not even in a single seed. By accuracy
+alone that is 1 image, the same 1–0 kind of difference that Step 7 showed can
+easily be chance.
+
+**Confidence in the correct class:**
+
+| | All 150 | Healthy | Powdery | Rust |
+|---|---:|---:|---:|---:|
+| Mean change vs baseline | **+1.03 pp** | +0.27 pp | **+1.80 pp** | +1.02 pp |
+
+The probability of the correct class rose on 89 test images and fell on 59
+(95% CI for the mean change +0.20 to +1.90 pp; **Wilcoxon p = 0.0006**). So
+CLAHE has a small but genuine effect, and it is largest on Powdery, as the
+hypothesis predicted.
+
+**But it does not reach the hard images.** The two images every backbone gets
+wrong barely move, even though the mildew on `9ff7d2a5` looks clearer to a
+human:
+
+| Image | Actual | P(actual), baseline | P(actual), CLAHE |
+|---|---|---:|---:|
+| `81e5fcf4` | Powdery | 0.4% | 1.8% |
+| `9ff7d2a5` | Powdery | 0.7% | 1.0% |
+| `82c3830f` | Powdery | 19.3% | 37.9% |
+| `8eb3b688` | Healthy | 46.4% | 60.4% (fixed) |
+
+**Conclusion.** CLAHE is the first technique with a measurable positive effect,
+and it points in the predicted direction (Powdery gains most). It is also
+cheap, deterministic and never fails on an image (no fallbacks). But the effect
+is about one percentage point of confidence, which converted into one fixed
+image on this test set, and the hardest Powdery images remain far from the
+decision line. What makes them hard is evidently not just low contrast. CLAHE
+is a reasonable addition to the pipeline, not a fix for the main failure mode.
+
+### 8c — Super-resolution with ESRGAN, and why it does not fit this dataset
+
+**Why it cannot help as-is.** ESRGAN is a GAN-trained network that upscales an
+image 4x and fills in plausible detail. It solves the problem of images that
+are too *small*. This dataset has the opposite situation: the photos are
+~4000x3000 and the pipeline shrinks them to 224x224, about 18x smaller.
+Upscaling the originals would produce detail that is immediately thrown away by
+the resize. There is nothing for super-resolution to recover.
+
+**What was tested instead: a simulated low-resolution camera.** To give ESRGAN
+a fair chance, every image was shrunk to 64 px on the short side (e.g. 96x64,
+roughly a thumbnail) and then upscaled 4x back to 256 px, which is exactly the
+size the pipeline's `Resize(256)` produces. Two upscalers were compared:
+
+- **Bicubic**, ordinary interpolation, as the control. It adds no information,
+  so it shows how much the low resolution itself costs.
+- **Real-ESRGAN x4plus**, the version trained on realistically degraded
+  photos (blur, noise, JPEG artefacts). The network is written out in
+  [`esrgan.py`](esrgan.py) instead of installing the heavy `basicsr` package,
+  and the official weights are loaded with `strict=True`, so any mismatch
+  with the published architecture would fail loudly. On the VM's CPU it takes
+  ~3 s per image per core: 31 minutes for all 1,532 images.
+
+![ESRGAN preview](figures/esrgan_preview.jpg)
+
+*Columns: the original model input, the 64 px image (shown with visible
+pixels), bicubic upscaling, ESRGAN upscaling. The second row of each pair
+zooms 4x into the centre.*
+
+The figure shows the trade-off before any numbers. ESRGAN makes **edges**
+crisp: the leaf outline and the rust spot on `87e8cb11` look sharper and more
+saturated than with bicubic. But it **smooths surfaces**: the leaf veins
+disappear, and on `9ff7d2a5` the whitish mildew patches are *less* visible
+than with plain bicubic. Real-ESRGAN was trained to remove noise and blur, and
+fine powdery texture looks like noise to it. On the heavily infected
+`a4f635f2` it generates a mottled texture, but not the texture that was really
+there.
+
+**Result:**
+
+| Variant | Validation | Test, mean (min–max) over 5 seeds | Errors | Fixed | New |
+|---|---:|---:|---:|---:|---:|
+| Baseline (full resolution) | 100.0% | 96.0% (96.0–96.0) | 6 | – | – |
+| 64 px + bicubic | 100.0% | 95.1% (94.7–95.3) | 8 | 1 | 3 |
+| 64 px + ESRGAN | 98.7% | 95.7% (95.3–96.0) | 6 | 1 | 1 |
+
+| Confidence in the correct class | All 150 | Healthy | Powdery | Rust |
+|---|---:|---:|---:|---:|
+| Bicubic vs baseline | **−4.16 pp** (p = 0.00006) | −4.71 | −1.92 | −5.85 |
+| ESRGAN vs baseline | −1.97 pp (p = 0.005) | −4.42 | **−2.96** | +1.46 |
+| ESRGAN vs bicubic | +2.19 pp (p = 0.23) | +0.29 | **−1.03** | **+7.31** |
+
+**Reading the numbers:**
+
+- **Low resolution costs less than expected.** Shrinking to 64 px lowers
+  confidence by 4 percentage points but costs only ~1 point of accuracy (two
+  extra errors). Most of what the classifier relies on, colour and coarse
+  shape, survives at thumbnail size.
+- **ESRGAN wins back about half of the confidence loss**, but the gain over
+  bicubic is not statistically reliable overall (p = 0.23), and it is not
+  spread evenly:
+  - **Rust gains strongly (+7.3 pp over bicubic).** A rust pustule is a sharp,
+    saturated spot with a clear edge, exactly the kind of structure ESRGAN
+    reconstructs well. It fixes the Rust image `87e8cb11`, a baseline error.
+  - **Powdery gets worse (−1.0 pp vs bicubic, −3.0 pp vs baseline).** Mildew
+    is a soft, low-contrast texture, exactly what ESRGAN smooths away.
+    Powdery is already the weakest class, so this is the wrong direction.
+- **ESRGAN reintroduces the calyx error.** `8ddd5ec1` (Healthy → Rust), the
+  brown fruit calyx from Step 6, is classified correctly by ResNet18 at full
+  resolution and with bicubic, but **wrong in 5/5 seeds after ESRGAN**.
+  Sharpening and saturating the dried brown calyx makes it look even more like
+  a rust pustule: the invented detail creates evidence for a disease that is
+  not there.
+
+**Conclusion — why ESRGAN is not relevant for this use case:**
+
+1. **The images are already high-resolution.** Super-resolution only has a
+   job when the input is small. Here the pipeline deliberately throws away
+   over 99% of the pixels (224x224 out of ~12 megapixels).
+2. **Even when the images are made small, resolution is not the bottleneck.**
+   At 64 px the classifier loses only ~1 point of accuracy.
+3. **ESRGAN invents detail, and the invented detail is biased.** It sharpens
+   edges and spots (helping Rust) and smooths texture (hurting Powdery, the
+   weakest class). In a diagnostic task, generated detail can create false
+   evidence: the calyx is misread as rust only after ESRGAN.
+4. **It is expensive.** ~3 s per image per CPU core, against milliseconds for
+   the rest of the preprocessing.
+
+Super-resolution would become relevant if the photos came from a
+low-resolution source (e.g. a distant surveillance camera or drone footage).
+Even then, this experiment suggests checking per class, because what ESRGAN
+reconstructs well (sharp spots) and what it destroys (soft texture) map onto
+different diseases.
+
+### 8d — Do the effects hold on a second backbone?
+
+Sections 8a–8c all used ResNet18, because Step 8 started before the YOLO
+results existed and every variant must share one baseline. But a preprocessing
+effect measured on one network may not transfer to another: YOLOv8n-cls was
+trained differently and sees raw 0–1 pixels where ResNet18 sees
+ImageNet-normalised ones. So every variant was repeated on **YOLOv8n-cls**,
+the best backbone from Step 7, with its own baseline and its own input recipe:
+
+```bash
+python3 experiment_variants.py --backbone yolov8n_cls
+python3 experiment_variants.py --compare
+```
+
+ESRGAN's upscaled images are now saved to disk (lossless PNG, keyed by a hash
+of the input pixels), so any further backbone skips the 30-minute upscaling.
+
+Each variant compared with **its own backbone's baseline** (confidence =
+change in the probability of the correct class, averaged over 150 test images):
+
+| Variant | Backbone | Test | Errors | Fixed | New | Confidence change | p | Powdery | Rust |
+|---|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| Baseline | ResNet18 | 96.0% | 6 | – | – | – | – | – | – |
+| Baseline | YOLOv8n | 97.3% | 4 | – | – | – | – | – | – |
+| Leaf crop | ResNet18 | 96.0% | 6 | 0 | 0 | +0.59 pp | 0.009 | +0.88 | +0.18 |
+| Leaf crop | YOLOv8n | 96.5% | 5 | 0 | 1 | −0.02 pp | 0.67 | −0.27 | −0.51 |
+| **CLAHE** | ResNet18 | 96.5% | 5 | 1 | 0 | **+1.03 pp** | **0.0006** | +1.80 | +1.02 |
+| **CLAHE** | YOLOv8n | **97.9%** | **3** | 1 | 0 | **+0.50 pp** | **0.0004** | +0.56 | +0.95 |
+| 64 px + bicubic | ResNet18 | 95.1% | 8 | 1 | 3 | −4.16 pp | 0.00006 | −1.92 | −5.85 |
+| 64 px + bicubic | YOLOv8n | 96.7% | 5 | 1 | 2 | −0.31 pp | 0.006 | −0.84 | +0.15 |
+| 64 px + ESRGAN | ResNet18 | 95.7% | 6 | 1 | 1 | −1.97 pp | 0.005 | −2.96 | +1.46 |
+| 64 px + ESRGAN | YOLOv8n | 96.1% | 6 | 1 | 3 | −1.35 pp | 0.006 | −1.72 | −1.32 |
+
+**What replicates and what does not:**
+
+- **CLAHE replicates.** On both backbones it fixes one image, introduces none,
+  and raises confidence in the correct class on clearly more images than it
+  lowers it (YOLOv8n: 82 up, 48 down; p = 0.0004). It is the only technique
+  with a positive effect on both networks. **YOLOv8n + CLAHE reaches 97.9%
+  (3 errors), the best result in the project.** Two caveats: on YOLOv8n the
+  average size of the gain is uncertain (95% CI −0.43 to +1.81 pp; the
+  direction is consistent, the magnitude is not pinned down), and the three
+  Powdery errors that remain are the same hard images as before.
+- **Leaf crop does not replicate.** The small confidence gain on ResNet18
+  (+0.59 pp) disappears on YOLOv8n (−0.02 pp, p = 0.67), which also gains one
+  new error. The 8a effect was specific to ResNet18; overall, cropping to the
+  leaf has no reliable effect on this dataset.
+- **YOLOv8n is far more robust to low resolution.** Shrinking to 64 px costs
+  ResNet18 4.2 pp of confidence but YOLOv8n only 0.3 pp. Whatever the reason
+  (training augmentation, architecture), resolution matters even less for
+  YOLOv8n than for ResNet18.
+- **ESRGAN does worse than plain bicubic on YOLOv8n** (6 errors vs 5;
+  −1.05 pp vs bicubic, p = 0.64). Its Rust gain on ResNet18 does not replicate
+  (−1.46 pp vs bicubic on YOLOv8n), so that was backbone-specific too.
+- **The ESRGAN calyx error replicates.** On YOLOv8n, `8ddd5ec1` (Healthy →
+  Rust) again becomes an error after ESRGAN (4/5 seeds), and is correct at full
+  resolution and after bicubic. It is the most robust ESRGAN finding: the
+  invented detail creates false evidence of rust on both networks.
+
+**The lesson for Step 8:** effects of around ±1 percentage point of confidence
+can depend on the backbone, so a preprocessing result measured on one network
+is a hypothesis about another, not a fact. Here, only CLAHE's benefit and
+ESRGAN's harm survive the change of backbone.
+
 ### Status of the techniques
 
 | Technique | Status | Effect |
 |---|---|---|
-| Thresholding + cropping | **Tested (8a)** | None (0 fixed, 0 new) |
-| CLAHE | Planned | – |
+| Thresholding + cropping | **Tested (8a, 8d)** | No reliable effect: +0.6 pp confidence on ResNet18, none on YOLOv8n (and one new error) |
+| CLAHE | **Tested (8b, 8d)** | **Small positive effect on both backbones**: 1 fixed, 0 new each; confidence +1.0 pp (ResNet18) and +0.5 pp (YOLOv8n). YOLOv8n + CLAHE = 97.9%, best result |
 | Background blur (GrabCut mask) | Candidate; needs the shortcut check | – |
 | Denoising | Planned | – |
 | Edge map as input | Planned | – |
-| Super-resolution (low-resolution simulation) | Planned | – |
+| Super-resolution, ESRGAN (64 px simulation) | **Tested (8c, 8d)** | Not relevant: images are already high-resolution. In the simulation it helps ResNet18 somewhat but does worse than bicubic on YOLOv8n, and recreates the calyx error on both |
 
 ---
 
@@ -1018,10 +1263,14 @@ python3 compare_backbones_seeds.py  # Step 7: 5 backbones x 5 seeds + per-image 
 #   (Runtime -> T4 GPU), with archive.zip in My Drive/ComputerVision/ (~4m)
 python3 experiment_variants.py      # Step 8: all preprocessing variants (~7m first run)
 python3 experiment_variants.py leaf_crop   # Step 8: just one variant
+python3 experiment_variants.py --backbone yolov8n_cls   # Step 8d: all variants on YOLOv8n
+python3 experiment_variants.py --compare   # Step 8d: both backbones side by side
+# lowres_esrgan needs RealESRGAN_x4plus.pth (see esrgan.py) and takes ~30m on CPU
 ```
 
 Step 8 builds a 1024 px working copy in `images/working_1024/` on first run and
-caches each variant's features in `feature_cache_variants/<variant>/`. Delete a
+caches each variant's features in `feature_cache_variants/<backbone>/<variant>/`.
+ESRGAN output is saved in `images/variant_cache/lowres_esrgan/`. Delete a
 variant's folder after changing its function. Results from every run are merged
 into `experiment_variants_results.json`.
 
@@ -1050,6 +1299,9 @@ or normalisation.
 | 7 | ResNet34 (frozen) + linear head, Colab T4 GPU | Plant disease | 40 | 96.0% (1 run) |
 | 7 | **YOLOv8n-cls / YOLOv8s-cls (frozen) + linear head** | Plant disease | 40 | **97.3%** (5 seeds; not significantly above 96.0%) |
 | 8a | ResNet18 (frozen) + leaf crop (GrabCut) | Plant disease | 40 | 96.0% (5 seeds; baseline also 96.0%) |
+| 8b | ResNet18 (frozen) + CLAHE on lightness | Plant disease | 40 | 96.5% (5 seeds; confidence +1.0 pp, p = 0.0006) |
+| 8c | ResNet18 (frozen), 64 px + bicubic / + ESRGAN | Plant disease | 40 | 95.1% / 95.7% (5 seeds; full resolution 96.0%) |
+| 8d | **YOLOv8n-cls (frozen) + CLAHE** | Plant disease | 40 | **97.9%** (5 seeds; YOLOv8n baseline 97.3%) |
 
 ### What this project demonstrates
 
@@ -1078,4 +1330,5 @@ or normalisation.
 - Making a saved model refuse to run with the wrong inputs: checkpoints that
   record their own recipe, and guards that check it (Step 7)
 - Testing classic preprocessing as controlled experiments and reporting the
-  negative results too (Step 8)
+  negative results too, and re-testing on a second backbone to see which
+  effects survive (Step 8)

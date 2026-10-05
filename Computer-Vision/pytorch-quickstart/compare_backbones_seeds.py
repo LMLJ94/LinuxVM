@@ -93,20 +93,24 @@ def accuracy(head, features, labels):
 
 
 results = {}
+val_results = {}
 wrong_counts = {}  # backbone -> per-test-image number of seeds it was wrong in
 for name, cache_dir in CACHES.items():
     check_file_order(cache_dir)
     train_x, train_y, classes = load_split(cache_dir, "train")
     test_x, test_y, _ = load_split(cache_dir, "test")
+    val_x, val_y, _ = load_split(cache_dir, "val")
     print(f"\n{name}  (feature dim {train_x.shape[1]})")
     print("-" * 40)
 
     accs = []
+    val_accs = []
     wrong = torch.zeros(len(test_y), dtype=torch.int64)
     for seed in SEEDS:
         start = time.perf_counter()
         head = train_head(train_x, train_y, len(classes), seed)
         acc = accuracy(head, test_x, test_y)
+        val_accs.append(accuracy(head, val_x, val_y))
         with torch.no_grad():
             wrong += (head(test_x).argmax(1) != test_y).long()
         accs.append(acc)
@@ -116,16 +120,17 @@ for name, cache_dir in CACHES.items():
             f"({errors} errors)  {time.perf_counter() - start:4.1f}s"
         )
     results[name] = torch.tensor(accs)
+    val_results[name] = sum(val_accs) / len(val_accs)
     wrong_counts[name] = wrong
 
 print("\n" + "=" * 60)
 print(f"SUMMARY over {len(SEEDS)} seeds, {len(test_y)} test images")
 print("=" * 60)
-print(f"{'Backbone':<20} {'mean':>7} {'min':>7} {'max':>7} {'std':>6}")
+print(f"{'Backbone':<20} {'mean':>7} {'min':>7} {'max':>7} {'std':>6} {'val':>7}")
 for name, accs in results.items():
     print(
         f"{name:<20} {accs.mean() * 100:6.1f}% {accs.min() * 100:6.1f}% "
-        f"{accs.max() * 100:6.1f}% {accs.std() * 100:5.1f}"
+        f"{accs.max() * 100:6.1f}% {accs.std() * 100:5.1f} {val_results[name] * 100:6.1f}%"
     )
 per_image = 100 / len(test_y)
 print(f"\nOne test image = {per_image:.2f} percentage points")
