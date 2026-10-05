@@ -1,0 +1,124 @@
+{
+  "baseline": {
+    "test_acc_per_seed": [
+      0.96,
+      0.96,
+      0.96,
+      0.96,
+      0.96
+    ],
+    "test_acc_mean": 0.96,
+    "val_acc_mean": 1.0,
+    "errors": {
+      "8eb3b68893378387": {
+        "actual": "Healthy",
+        "predicted": "Powdery",
+        "wrong_in_seeds": 5
+      },
+      "81e5fcf446a9270b": {
+        "actual": "Powdery",
+        "predicted": "Rust",
+        "wrong_in_seeds": 5
+      },
+      "82c3830f3bd2d1db": {
+        "actual": "Powdery",
+        "predicted": "Healthy",
+        "wrong_in_seeds": 5
+      },
+      "9ff7d2a548203c4b": {
+        "actual": "Powdery",
+        "predicted": "Healthy",
+        "wrong_in_seeds": 5
+      },
+      "87e8cb11791fd078": {
+        "actual": "Rust",
+        "predicted": "Healthy",
+        "wrong_in_seeds": 5
+      },
+      "89e926943ba5693b": {
+        "actual": "Rust",
+        "predicted": "Powdery",
+        "wrong_in_seeds": 5
+      }
+    },
+    "fallback": {
+      "train": {
+        "Healthy": "0/458",
+        "Powdery": "0/430",
+        "Rust": "0/434"
+      },
+      "val": {
+        "Healthy": "0/20",
+        "Powdery": "0/20",
+        "Rust": "0/20"
+      },
+      "test": {
+        "Healthy": "0/50",
+        "Powdery": "0/50",
+        "Rust": "0/50"
+      }
+    },
+    "n_test": 150
+  },
+  "leaf_crop": {
+    "test_acc_per_seed": [
+      0.96,
+      0.96,
+      0.96,
+      0.96,
+      0.96
+    ],
+    "test_acc_mean": 0.96,
+    "val_acc_mean": 0.9667,
+    "errors": {
+      "8eb3b68893378387": {
+        "actual": "Healthy",
+        "predicted": "Powdery",
+        "wrong_in_seeds": 5
+      },
+      "81e5fcf446a9270b": {
+        "actual": "Powdery",
+        "predicted": "Healthy",
+        "wrong_in_seeds": 5
+      },
+      "82c3830f3bd2d1db": {
+        "actual": "Powdery",
+        "predicted": "Healthy",
+        "wrong_in_seeds": 5
+      },
+      "9ff7d2a548203c4b": {
+        "actual": "Powdery",
+        "predicted": "Healthy",
+        "wrong_in_seeds": 5
+      },
+      "87e8cb11791fd078": {
+        "actual": "Rust",
+        "predicted": "Healthy",
+        "wrong_in_seeds": 5
+      },
+      "89e926943ba5693b": {
+        "actual": "Rust",
+        "predicted": "Powdery",
+        "wrong_in_seeds": 5
+      }
+    },
+    "fallback": {
+      "train": {
+        "Healthy": "2/458",
+        "Powdery": "29/430",
+        "Rust": "37/434"
+      },
+      "val": {
+        "Healthy": "0/20",
+        "Powdery": "0/20",
+        "Rust": "2/20"
+      },
+      "test": {
+        "Healthy": "0/50",
+        "Powdery": "2/50",
+        "Rust": "3/50"
+      }
+    },
+    "n_test": 150
+  }
+}

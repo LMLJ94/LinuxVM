@@ -1,0 +1,15 @@
+# Dataset and derived image copies (7 GB; download the Kaggle dataset instead)
+images/
+usecase/archive.zip
+pytorch-quickstart/data/
+
+# Python environment and caches
+usecase/venv/
+__pycache__/
+
+# Regenerable artifacts: feature caches, trained weights, pretrained downloads.
+# Each script recreates these on its next run (see the README).
+feature_cache*/
+*.pt
+*.pth
+*.joblib
