@@ -1,0 +1,1046 @@
+{
+  "colour_texture": {
+    "classes": [
+      "Healthy",
+      "Powdery",
+      "Rust"
+    ],
+    "val_acc_mean": 0.7966666666666666,
+    "test_acc_per_seed": [
+      0.8266666666666667,
+      0.8266666666666667,
+      0.8266666666666667,
+      0.84,
+      0.84
+    ],
+    "test_acc_mean": 0.8320000000000001,
+    "test_acc_majority": 0.8333333333333334,
+    "per_class": {
+      "Healthy": {
+        "precision": 0.7288135593220338,
+        "recall": 0.86
+      },
+      "Powdery": {
+        "precision": 0.8936170212765957,
+        "recall": 0.84
+      },
+      "Rust": {
+        "precision": 0.9090909090909091,
+        "recall": 0.8
+      }
+    },
+    "confusion_matrix": [
+      [
+        43,
+        4,
+        3
+      ],
+      [
+        7,
+        42,
+        1
+      ],
+      [
+        9,
+        1,
+        40
+      ]
+    ],
+    "errors": {
+      "8e8470687be37378": {
+        "actual": "Healthy",
+        "predicted": "Powdery",
+        "wrong_in_seeds": 5
+      },
+      "8eb0da4b65b0638f": {
+        "actual": "Healthy",
+        "predicted": "Powdery",
+        "wrong_in_seeds": 5
+      },
+      "8f137ee1d4f01a58": {
+        "actual": "Healthy",
+        "predicted": "Rust",
+        "wrong_in_seeds": 5
+      },
+      "8f212597df6822ea": {
+        "actual": "Healthy",
+        "predicted": "Powdery",
+        "wrong_in_seeds": 5
+      },
+      "8f2acfec7cc230c1": {
+        "actual": "Healthy",
+        "predicted": "Rust",
+        "wrong_in_seeds": 5
+      },
+      "8f3360ce3227c79a": {
+        "actual": "Healthy",
+        "predicted": "Rust",
+        "wrong_in_seeds": 5
+      },
+      "8fd88738e26f45c4": {
+        "actual": "Healthy",
+        "predicted": "Powdery",
+        "wrong_in_seeds": 5
+      },
+      "81a63d7ef8245a72": {
+        "actual": "Powdery",
+        "predicted": "Healthy",
+        "wrong_in_seeds": 5
+      },
+      "81e5fcf446a9270b": {
+        "actual": "Powdery",
+        "predicted": "Rust",
+        "wrong_in_seeds": 5
+      },
+      "81ecbe9194a32b73": {
+        "actual": "Powdery",
+        "predicted": "Healthy",
+        "wrong_in_seeds": 5
+      },
+      "82c232bae9b36ccd": {
+        "actual": "Powdery",
+        "predicted": "Healthy",
+        "wrong_in_seeds": 5
+      },
+      "83ac2ccacb0fd2b9": {
+        "actual": "Powdery",
+        "predicted": "Healthy",
+        "wrong_in_seeds": 5
+      },
+      "86c26ddf47b35828": {
+        "actual": "Powdery",
+        "predicted": "Healthy",
+        "wrong_in_seeds": 5
+      },
+      "9ed17032dce2f984": {
+        "actual": "Powdery",
+        "predicted": "Healthy",
+        "wrong_in_seeds": 5
+      },
+      "9ff7d2a548203c4b": {
+        "actual": "Powdery",
+        "predicted": "Healthy",
+        "wrong_in_seeds": 5
+      },
+      "82f49a4a7b9585f1": {
+        "actual": "Rust",
+        "predicted": "Healthy",
+        "wrong_in_seeds": 5
+      },
+      "83c2939deb266572": {
+        "actual": "Rust",
+        "predicted": "Healthy",
+        "wrong_in_seeds": 3
+      },
+      "84c3f037e53e66a1": {
+        "actual": "Rust",
+        "predicted": "Healthy",
+        "wrong_in_seeds": 5
+      },
+      "84d7fe5c7c0c43c2": {
+        "actual": "Rust",
+        "predicted": "Healthy",
+        "wrong_in_seeds": 5
+      },
+      "85f6618e5784b9a3": {
+        "actual": "Rust",
+        "predicted": "Healthy",
+        "wrong_in_seeds": 5
+      },
+      "87e3d0c12a7ba995": {
+        "actual": "Rust",
+        "predicted": "Healthy",
+        "wrong_in_seeds": 5
+      },
+      "90fcd8e1fb2e003d": {
+        "actual": "Rust",
+        "predicted": "Healthy",
+        "wrong_in_seeds": 3
+      },
+      "93b2a2dec65c2b43": {
+        "actual": "Rust",
+        "predicted": "Healthy",
+        "wrong_in_seeds": 5
+      },
+      "93e896990cb365b5": {
+        "actual": "Rust",
+        "predicted": "Healthy",
+        "wrong_in_seeds": 4
+      },
+      "95a921b75e401afe": {
+        "actual": "Rust",
+        "predicted": "Powdery",
+        "wrong_in_seeds": 5
+      }
+    },
+    "importance_top": [
+      [
+        "low_saturation_fraction",
+        0.18820325803239618
+      ],
+      [
+        "hue_hist_7",
+        0.12569949614029488
+      ],
+      [
+        "green_fraction",
+        0.12003712690247433
+      ],
+      [
+        "laplacian_variance",
+        0.08051650134517872
+      ],
+      [
+        "rust_fraction",
+        0.07328860376917748
+      ],
+      [
+        "hue_hist_0",
+        0.05990826496067416
+      ],
+      [
+        "rust_spot_count",
+        0.05884842446928536
+      ],
+      [
+        "hue_hist_3",
+        0.05829451484817803
+      ],
+      [
+        "hue_hist_6",
+        0.05722687860448724
+      ],
+      [
+        "hue_hist_5",
+        0.05142193757556137
+      ]
+    ],
+    "importance_orb_share": 0.0
+  },
+  "colour_texture_orb": {
+    "classes": [
+      "Healthy",
+      "Powdery",
+      "Rust"
+    ],
+    "val_acc_mean": 0.75,
+    "test_acc_per_seed": [
+      0.7866666666666666,
+      0.8066666666666666,
+      0.7933333333333333,
+      0.7866666666666666,
+      0.8
+    ],
+    "test_acc_mean": 0.7946666666666667,
+    "test_acc_majority": 0.7933333333333333,
+    "per_class": {
+      "Healthy": {
+        "precision": 0.7358490566037735,
+        "recall": 0.78
+      },
+      "Powdery": {
+        "precision": 0.803921568627451,
+        "recall": 0.82
+      },
+      "Rust": {
+        "precision": 0.8478260869565217,
+        "recall": 0.78
+      }
+    },
+    "confusion_matrix": [
+      [
+        39,
+        7,
+        4
+      ],
+      [
+        6,
+        41,
+        3
+      ],
+      [
+        8,
+        3,
+        39
+      ]
+    ],
+    "errors": {
+      "8ddaa5a5caa5caa8": {
+        "actual": "Healthy",
+        "predicted": "Powdery",
+        "wrong_in_seeds": 5
+      },
+      "8e8470687be37378": {
+        "actual": "Healthy",
+        "predicted": "Rust",
+        "wrong_in_seeds": 5
+      },
+      "8e8835d2ebdbc503": {
+        "actual": "Healthy",
+        "predicted": "Powdery",
+        "wrong_in_seeds": 5
+      },
+      "8eb0da4b65b0638f": {
+        "actual": "Healthy",
+        "predicted": "Powdery",
+        "wrong_in_seeds": 5
+      },
+      "8f137ee1d4f01a58": {
+        "actual": "Healthy",
+        "predicted": "Rust",
+        "wrong_in_seeds": 5
+      },
+      "8f212597df6822ea": {
+        "actual": "Healthy",
+        "predicted": "Powdery",
+        "wrong_in_seeds": 5
+      },
+      "8f2acfec7cc230c1": {
+        "actual": "Healthy",
+        "predicted": "Rust",
+        "wrong_in_seeds": 5
+      },
+      "8f302a9511b7e74e": {
+        "actual": "Healthy",
+        "predicted": "Powdery",
+        "wrong_in_seeds": 5
+      },
+      "8f3360ce3227c79a": {
+        "actual": "Healthy",
+        "predicted": "Rust",
+        "wrong_in_seeds": 5
+      },
+      "8f83c2ee646433e3": {
+        "actual": "Healthy",
+        "predicted": "Powdery",
+        "wrong_in_seeds": 5
+      },
+      "8fd88738e26f45c4": {
+        "actual": "Healthy",
+        "predicted": "Powdery",
+        "wrong_in_seeds": 5
+      },
+      "81a63d7ef8245a72": {
+        "actual": "Powdery",
+        "predicted": "Healthy",
+        "wrong_in_seeds": 5
+      },
+      "81e5fcf446a9270b": {
+        "actual": "Powdery",
+        "predicted": "Rust",
+        "wrong_in_seeds": 5
+      },
+      "81fd7a861aedb380": {
+        "actual": "Powdery",
+        "predicted": "Healthy",
+        "wrong_in_seeds": 5
+      },
+      "82c232bae9b36ccd": {
+        "actual": "Powdery",
+        "predicted": "Healthy",
+        "wrong_in_seeds": 5
+      },
+      "84d40fd9cf1819cf": {
+        "actual": "Powdery",
+        "predicted": "Healthy",
+        "wrong_in_seeds": 3
+      },
+      "9e0ba1619bdf4943": {
+        "actual": "Powdery",
+        "predicted": "Rust",
+        "wrong_in_seeds": 5
+      },
+      "9e84aee68691979c": {
+        "actual": "Powdery",
+        "predicted": "Rust",
+        "wrong_in_seeds": 5
+      },
+      "9ed17032dce2f984": {
+        "actual": "Powdery",
+        "predicted": "Healthy",
+        "wrong_in_seeds": 5
+      },
+      "9ff7d2a548203c4b": {
+        "actual": "Powdery",
+        "predicted": "Healthy",
+        "wrong_in_seeds": 5
+      },
+      "82f49a4a7b9585f1": {
+        "actual": "Rust",
+        "predicted": "Healthy",
+        "wrong_in_seeds": 5
+      },
+      "84c3f037e53e66a1": {
+        "actual": "Rust",
+        "predicted": "Healthy",
+        "wrong_in_seeds": 5
+      },
+      "85e36e1b30afca61": {
+        "actual": "Rust",
+        "predicted": "Healthy",
+        "wrong_in_seeds": 5
+      },
+      "85f6618e5784b9a3": {
+        "actual": "Rust",
+        "predicted": "Healthy",
+        "wrong_in_seeds": 5
+      },
+      "87e3d0c12a7ba995": {
+        "actual": "Rust",
+        "predicted": "Healthy",
+        "wrong_in_seeds": 5
+      },
+      "87e8cb11791fd078": {
+        "actual": "Rust",
+        "predicted": "Healthy",
+        "wrong_in_seeds": 4
+      },
+      "88b3f86bc843d58d": {
+        "actual": "Rust",
+        "predicted": "Powdery",
+        "wrong_in_seeds": 5
+      },
+      "90fcd8e1fb2e003d": {
+        "actual": "Rust",
+        "predicted": "Healthy",
+        "wrong_in_seeds": 5
+      },
+      "93b2a2dec65c2b43": {
+        "actual": "Rust",
+        "predicted": "Powdery",
+        "wrong_in_seeds": 5
+      },
+      "93e896990cb365b5": {
+        "actual": "Rust",
+        "predicted": "Healthy",
+        "wrong_in_seeds": 5
+      },
+      "95a921b75e401afe": {
+        "actual": "Rust",
+        "predicted": "Powdery",
+        "wrong_in_seeds": 5
+      }
+    },
+    "importance_top": [
+      [
+        "low_saturation_fraction",
+        0.10107456259250347
+      ],
+      [
+        "hue_hist_7",
+        0.07912503762012216
+      ],
+      [
+        "green_fraction",
+        0.0727050902219902
+      ],
+      [
+        "rust_fraction",
+        0.04579024554476246
+      ],
+      [
+        "rust_spot_count",
+        0.04165970719285429
+      ],
+      [
+        "laplacian_variance",
+        0.035395747458567405
+      ],
+      [
+        "hue_hist_6",
+        0.033448468276671625
+      ],
+      [
+        "hue_hist_0",
+        0.03328563206141968
+      ],
+      [
+        "hue_hist_5",
+        0.03244079431657874
+      ],
+      [
+        "hue_hist_3",
+        0.020325496189295553
+      ]
+    ],
+    "importance_orb_share": 0.46653330214757
+  },
+  "orb_only": {
+    "classes": [
+      "Healthy",
+      "Powdery",
+      "Rust"
+    ],
+    "val_acc_mean": 0.57,
+    "test_acc_per_seed": [
+      0.49333333333333335,
+      0.48,
+      0.47333333333333333,
+      0.48,
+      0.4866666666666667
+    ],
+    "test_acc_mean": 0.4826666666666667,
+    "test_acc_majority": 0.48,
+    "per_class": {
+      "Healthy": {
+        "precision": 0.44642857142857145,
+        "recall": 0.5
+      },
+      "Powdery": {
+        "precision": 0.4909090909090909,
+        "recall": 0.54
+      },
+      "Rust": {
+        "precision": 0.5128205128205128,
+        "recall": 0.4
+      }
+    },
+    "confusion_matrix": [
+      [
+        25,
+        18,
+        7
+      ],
+      [
+        11,
+        27,
+        12
+      ],
+      [
+        20,
+        10,
+        20
+      ]
+    ],
+    "errors": {
+      "8ddaa5a5caa5caa8": {
+        "actual": "Healthy",
+        "predicted": "Powdery",
+        "wrong_in_seeds": 5
+      },
+      "8ddaac1bd6c8cd0a": {
+        "actual": "Healthy",
+        "predicted": "Rust",
+        "wrong_in_seeds": 3
+      },
+      "8def3f60308ab41b": {
+        "actual": "Healthy",
+        "predicted": "Powdery",
+        "wrong_in_seeds": 5
+      },
+      "8df452e2e38c0b6e": {
+        "actual": "Healthy",
+        "predicted": "Powdery",
+        "wrong_in_seeds": 5
+      },
+      "8e3dbccdfe08c850": {
+        "actual": "Healthy",
+        "predicted": "Powdery",
+        "wrong_in_seeds": 5
+      },
+      "8e68163c62dc57d5": {
+        "actual": "Healthy",
+        "predicted": "Powdery",
+        "wrong_in_seeds": 5
+      },
+      "8e7e70a6878c1c79": {
+        "actual": "Healthy",
+        "predicted": "Rust",
+        "wrong_in_seeds": 5
+      },
+      "8e82b1a51bd11afe": {
+        "actual": "Healthy",
+        "predicted": "Powdery",
+        "wrong_in_seeds": 5
+      },
+      "8e8470687be37378": {
+        "actual": "Healthy",
+        "predicted": "Powdery",
+        "wrong_in_seeds": 5
+      },
+      "8e9e7eaa34250b71": {
+        "actual": "Healthy",
+        "predicted": "Rust",
+        "wrong_in_seeds": 5
+      },
+      "8eb0da4b65b0638f": {
+        "actual": "Healthy",
+        "predicted": "Powdery",
+        "wrong_in_seeds": 5
+      },
+      "8eb3b68893378387": {
+        "actual": "Healthy",
+        "predicted": "Powdery",
+        "wrong_in_seeds": 4
+      },
+      "8ed6fe1f030281d7": {
+        "actual": "Healthy",
+        "predicted": "Powdery",
+        "wrong_in_seeds": 5
+      },
+      "8f212597df6822ea": {
+        "actual": "Healthy",
+        "predicted": "Powdery",
+        "wrong_in_seeds": 4
+      },
+      "8f2acfec7cc230c1": {
+        "actual": "Healthy",
+        "predicted": "Rust",
+        "wrong_in_seeds": 5
+      },
+      "8f2f6ec09516f145": {
+        "actual": "Healthy",
+        "predicted": "Rust",
+        "wrong_in_seeds": 5
+      },
+      "8f302a9511b7e74e": {
+        "actual": "Healthy",
+        "predicted": "Powdery",
+        "wrong_in_seeds": 5
+      },
+      "8f3360ce3227c79a": {
+        "actual": "Healthy",
+        "predicted": "Powdery",
+        "wrong_in_seeds": 5
+      },
+      "8f456733d83cc836": {
+        "actual": "Healthy",
+        "predicted": "Powdery",
+        "wrong_in_seeds": 5
+      },
+      "8f83c2ee646433e3": {
+        "actual": "Healthy",
+        "predicted": "Powdery",
+        "wrong_in_seeds": 5
+      },
+      "8f850aea4adfda82": {
+        "actual": "Healthy",
+        "predicted": "Powdery",
+        "wrong_in_seeds": 5
+      },
+      "8f90e6bbd782c911": {
+        "actual": "Healthy",
+        "predicted": "Powdery",
+        "wrong_in_seeds": 5
+      },
+      "8faa21bead40b563": {
+        "actual": "Healthy",
+        "predicted": "Rust",
+        "wrong_in_seeds": 5
+      },
+      "8fc3b16e36d0aac8": {
+        "actual": "Healthy",
+        "predicted": "Rust",
+        "wrong_in_seeds": 5
+      },
+      "8fd88738e26f45c4": {
+        "actual": "Healthy",
+        "predicted": "Powdery",
+        "wrong_in_seeds": 5
+      },
+      "81a3b719b6c2b4da": {
+        "actual": "Powdery",
+        "predicted": "Rust",
+        "wrong_in_seeds": 4
+      },
+      "81a63d7ef8245a72": {
+        "actual": "Powdery",
+        "predicted": "Healthy",
+        "wrong_in_seeds": 5
+      },
+      "81e5fcf446a9270b": {
+        "actual": "Powdery",
+        "predicted": "Healthy",
+        "wrong_in_seeds": 5
+      },
+      "81ecbe9194a32b73": {
+        "actual": "Powdery",
+        "predicted": "Rust",
+        "wrong_in_seeds": 3
+      },
+      "81f43097df3940d7": {
+        "actual": "Powdery",
+        "predicted": "Rust",
+        "wrong_in_seeds": 5
+      },
+      "81fd7a861aedb380": {
+        "actual": "Powdery",
+        "predicted": "Healthy",
+        "wrong_in_seeds": 5
+      },
+      "82c13fd0b41f78f8": {
+        "actual": "Powdery",
+        "predicted": "Rust",
+        "wrong_in_seeds": 5
+      },
+      "82c9deec3e39d8c0": {
+        "actual": "Powdery",
+        "predicted": "Rust",
+        "wrong_in_seeds": 4
+      },
+      "82d1f812afcbda13": {
+        "actual": "Powdery",
+        "predicted": "Healthy",
+        "wrong_in_seeds": 5
+      },
+      "83c5b3ab0bbc98c6": {
+        "actual": "Powdery",
+        "predicted": "Healthy",
+        "wrong_in_seeds": 5
+      },
+      "83d867d86f14c62b": {
+        "actual": "Powdery",
+        "predicted": "Healthy",
+        "wrong_in_seeds": 4
+      },
+      "83f00b3aafcab28b": {
+        "actual": "Powdery",
+        "predicted": "Rust",
+        "wrong_in_seeds": 5
+      },
+      "84d40fd9cf1819cf": {
+        "actual": "Powdery",
+        "predicted": "Rust",
+        "wrong_in_seeds": 5
+      },
+      "85b53e9c21a1f82f": {
+        "actual": "Powdery",
+        "predicted": "Rust",
+        "wrong_in_seeds": 5
+      },
+      "85ec3f0705065df9": {
+        "actual": "Powdery",
+        "predicted": "Healthy",
+        "wrong_in_seeds": 5
+      },
+      "87b516b8b82169d7": {
+        "actual": "Powdery",
+        "predicted": "Rust",
+        "wrong_in_seeds": 5
+      },
+      "87badaa43cc8ec92": {
+        "actual": "Powdery",
+        "predicted": "Healthy",
+        "wrong_in_seeds": 5
+      },
+      "9e84aee68691979c": {
+        "actual": "Powdery",
+        "predicted": "Healthy",
+        "wrong_in_seeds": 5
+      },
+      "9ec3bb24f28c4d8c": {
+        "actual": "Powdery",
+        "predicted": "Healthy",
+        "wrong_in_seeds": 5
+      },
+      "9ed17032dce2f984": {
+        "actual": "Powdery",
+        "predicted": "Rust",
+        "wrong_in_seeds": 4
+      },
+      "9f802f3f8a603cb5": {
+        "actual": "Powdery",
+        "predicted": "Rust",
+        "wrong_in_seeds": 3
+      },
+      "9fd12addd42ac28a": {
+        "actual": "Powdery",
+        "predicted": "Healthy",
+        "wrong_in_seeds": 5
+      },
+      "9ff7d2a548203c4b": {
+        "actual": "Powdery",
+        "predicted": "Rust",
+        "wrong_in_seeds": 3
+      },
+      "830f26cc6d3cd13e": {
+        "actual": "Rust",
+        "predicted": "Powdery",
+        "wrong_in_seeds": 5
+      },
+      "831abdc76c05e23d": {
+        "actual": "Rust",
+        "predicted": "Healthy",
+        "wrong_in_seeds": 5
+      },
+      "849a8d127bfaeb21": {
+        "actual": "Rust",
+        "predicted": "Powdery",
+        "wrong_in_seeds": 3
+      },
+      "84d7fe5c7c0c43c2": {
+        "actual": "Rust",
+        "predicted": "Healthy",
+        "wrong_in_seeds": 5
+      },
+      "85bf39e025c7c41e": {
+        "actual": "Rust",
+        "predicted": "Powdery",
+        "wrong_in_seeds": 5
+      },
+      "85dfc22c76240f73": {
+        "actual": "Rust",
+        "predicted": "Healthy",
+        "wrong_in_seeds": 3
+      },
+      "85e36e1b30afca61": {
+        "actual": "Rust",
+        "predicted": "Healthy",
+        "wrong_in_seeds": 5
+      },
+      "85f0c2c0db4b4f4f": {
+        "actual": "Rust",
+        "predicted": "Healthy",
+        "wrong_in_seeds": 5
+      },
+      "85f6618e5784b9a3": {
+        "actual": "Rust",
+        "predicted": "Healthy",
+        "wrong_in_seeds": 5
+      },
+      "86b186392c03fdcf": {
+        "actual": "Rust",
+        "predicted": "Healthy",
+        "wrong_in_seeds": 3
+      },
+      "86d647d50695364f": {
+        "actual": "Rust",
+        "predicted": "Healthy",
+        "wrong_in_seeds": 5
+      },
+      "86eec849f0b46976": {
+        "actual": "Rust",
+        "predicted": "Healthy",
+        "wrong_in_seeds": 5
+      },
+      "87e3d0c12a7ba995": {
+        "actual": "Rust",
+        "predicted": "Healthy",
+        "wrong_in_seeds": 5
+      },
+      "87e8cb11791fd078": {
+        "actual": "Rust",
+        "predicted": "Healthy",
+        "wrong_in_seeds": 5
+      },
+      "88b3f86bc843d58d": {
+        "actual": "Rust",
+        "predicted": "Healthy",
+        "wrong_in_seeds": 5
+      },
+      "88e3af0caa9e497c": {
+        "actual": "Rust",
+        "predicted": "Powdery",
+        "wrong_in_seeds": 5
+      },
+      "89afafc40142e36f": {
+        "actual": "Rust",
+        "predicted": "Healthy",
+        "wrong_in_seeds": 5
+      },
+      "89bc19fcf830c6e8": {
+        "actual": "Rust",
+        "predicted": "Healthy",
+        "wrong_in_seeds": 5
+      },
+      "89cb83b03f3c60cf": {
+        "actual": "Rust",
+        "predicted": "Powdery",
+        "wrong_in_seeds": 5
+      },
+      "89e926943ba5693b": {
+        "actual": "Rust",
+        "predicted": "Powdery",
+        "wrong_in_seeds": 5
+      },
+      "90bb8dcc6f0c58b9": {
+        "actual": "Rust",
+        "predicted": "Powdery",
+        "wrong_in_seeds": 5
+      },
+      "90fcd8e1fb2e003d": {
+        "actual": "Rust",
+        "predicted": "Healthy",
+        "wrong_in_seeds": 5
+      },
+      "92f22e07d63e6c8c": {
+        "actual": "Rust",
+        "predicted": "Healthy",
+        "wrong_in_seeds": 4
+      },
+      "93b2a2dec65c2b43": {
+        "actual": "Rust",
+        "predicted": "Powdery",
+        "wrong_in_seeds": 5
+      },
+      "93e896990cb365b5": {
+        "actual": "Rust",
+        "predicted": "Healthy",
+        "wrong_in_seeds": 5
+      },
+      "95a921b75e401afe": {
+        "actual": "Rust",
+        "predicted": "Powdery",
+        "wrong_in_seeds": 5
+      },
+      "95ac93e87a9744d1": {
+        "actual": "Rust",
+        "predicted": "Healthy",
+        "wrong_in_seeds": 3
+      },
+      "95fcc0d888c1b9bb": {
+        "actual": "Rust",
+        "predicted": "Healthy",
+        "wrong_in_seeds": 5
+      },
+      "97ae1a31133769cc": {
+        "actual": "Rust",
+        "predicted": "Powdery",
+        "wrong_in_seeds": 5
+      },
+      "99f3639158699cd8": {
+        "actual": "Rust",
+        "predicted": "Healthy",
+        "wrong_in_seeds": 4
+      }
+    },
+    "importance_top": [
+      [
+        "orb_word_46",
+        0.032226765363595825
+      ],
+      [
+        "orb_word_37",
+        0.030754389880171644
+      ],
+      [
+        "orb_word_25",
+        0.03011567519418875
+      ],
+      [
+        "orb_word_8",
+        0.02805005422243742
+      ],
+      [
+        "orb_word_30",
+        0.027441623137910133
+      ],
+      [
+        "orb_word_47",
+        0.026476214241583584
+      ],
+      [
+        "orb_word_21",
+        0.026450546668503938
+      ],
+      [
+        "orb_word_44",
+        0.026424435914461634
+      ],
+      [
+        "orb_word_23",
+        0.02603170177209125
+      ],
+      [
+        "orb_word_49",
+        0.022937375599623333
+      ]
+    ],
+    "importance_orb_share": 1.0
+  },
+  "comparison_with_cnns": {
+    "colour_texture": {
+      "ResNet18": {
+        "cnn_errors": 6,
+        "both_wrong": [
+          "81e5fcf446a9270b",
+          "9ff7d2a548203c4b"
+        ],
+        "rf_wrong_cnn_right": 23,
+        "cnn_wrong_rf_right": 4,
+        "mcnemar_p": 0.000310748815536499
+      },
+      "YOLOv8n": {
+        "cnn_errors": 4,
+        "both_wrong": [
+          "81e5fcf446a9270b",
+          "9ff7d2a548203c4b"
+        ],
+        "rf_wrong_cnn_right": 23,
+        "cnn_wrong_rf_right": 2,
+        "mcnemar_p": 1.9431114196777344e-05
+      },
+      "YOLOv8n + CLAHE": {
+        "cnn_errors": 3,
+        "both_wrong": [
+          "81e5fcf446a9270b",
+          "9ff7d2a548203c4b"
+        ],
+        "rf_wrong_cnn_right": 23,
+        "cnn_wrong_rf_right": 1,
+        "mcnemar_p": 2.9802322387695312e-06
+      },
+      "ViT-B/16": {
+        "cnn_errors": 4,
+        "both_wrong": [
+          "81e5fcf446a9270b",
+          "93b2a2dec65c2b43",
+          "9ff7d2a548203c4b"
+        ],
+        "rf_wrong_cnn_right": 22,
+        "cnn_wrong_rf_right": 1,
+        "mcnemar_p": 5.7220458984375e-06
+      }
+    },
+    "colour_texture_orb": {
+      "ResNet18": {
+        "cnn_errors": 6,
+        "both_wrong": [
+          "81e5fcf446a9270b",
+          "87e8cb11791fd078",
+          "9ff7d2a548203c4b"
+        ],
+        "rf_wrong_cnn_right": 28,
+        "cnn_wrong_rf_right": 3,
+        "mcnemar_p": 4.649162292480469e-06
+      },
+      "YOLOv8n": {
+        "cnn_errors": 4,
+        "both_wrong": [
+          "81e5fcf446a9270b",
+          "87e8cb11791fd078",
+          "9ff7d2a548203c4b"
+        ],
+        "rf_wrong_cnn_right": 28,
+        "cnn_wrong_rf_right": 1,
+        "mcnemar_p": 1.1175870895385742e-07
+      },
+      "YOLOv8n + CLAHE": {
+        "cnn_errors": 3,
+        "both_wrong": [
+          "81e5fcf446a9270b",
+          "9ff7d2a548203c4b"
+        ],
+        "rf_wrong_cnn_right": 29,
+        "cnn_wrong_rf_right": 1,
+        "mcnemar_p": 5.774199962615967e-08
+      },
+      "ViT-B/16": {
+        "cnn_errors": 4,
+        "both_wrong": [
+          "81e5fcf446a9270b",
+          "93b2a2dec65c2b43",
+          "9ff7d2a548203c4b"
+        ],
+        "rf_wrong_cnn_right": 28,
+        "cnn_wrong_rf_right": 1,
+        "mcnemar_p": 1.1175870895385742e-07
+      }
+    }
+  },
+  "orb_ablation": {
+    "fixed": 5,
+    "broken": 11,
+    "mcnemar_p": 0.210113525390625
+  }
+}

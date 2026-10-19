@@ -1346,6 +1346,171 @@ but not for ViT: it depends on the type of network, not just on the images.
 
 ---
 
+## Step 9 — The classical baseline: hand-made features + Random Forest
+
+**File:** [`../usecase/evaluate_rf.py`](../usecase/evaluate_rf.py)
+**Output:** `../usecase/rf_results.json`,
+[`figures/rf_feature_boxplots.png`](figures/rf_feature_boxplots.png)
+
+Before transfer learning, the project started with classical image processing
+in [`../usecase/`](../usecase/): colour and texture features designed by hand
+and a Random Forest classifier
+([`train_classifier.py`](../usecase/train_classifier.py)). That model was only
+ever checked on the 60 validation images, so it could not be compared with
+Steps 5–8. This step evaluates it under the same protocol as the CNNs: the same
+150 test images, 5 seeds, majority-vote errors, and a per-image comparison.
+
+### The features
+
+[`features.py`](../usecase/features.py) computes 13 numbers per image, after
+resizing to 256x256:
+
+| Feature | What it measures | Aimed at |
+|---|---|---|
+| `green_fraction` | Pixels in HSV green (H 35–85, S ≥ 60) | Healthy leaf |
+| `rust_fraction`, `rust_spot_count` | Orange/brown pixels (H 5–25) after morphological opening, and the number of such spots | Rust pustules |
+| `low_saturation_fraction` | Greyish pixels (S < 60, 60 < V < 240) | Whitish mildew coating |
+| `laplacian_variance` | Variance of the Laplacian (amount of fine detail) | Texture |
+| `hue_hist_0..7` | 8-bin hue histogram | Overall colour |
+
+Optionally, a 50-word **ORB bag-of-visual-words** histogram is appended: ORB
+keypoints are found on the leaf, their descriptors are clustered into 50
+"visual words" (k-means on the training set), and each image is described by
+how often each word occurs. `train_classifier.py` used both.
+
+Features are extracted once (8 processes, ~2 minutes from the 12 MP originals)
+and cached; the cache records the feature recipe and is refused if it changes.
+The ORB vocabulary uses a fixed seed (42), and the Random Forest (300 trees) is
+trained with seeds 0–4.
+
+### Results
+
+| Feature set | Test, mean (min–max) | Errors (majority) | Validation |
+|---|---:|---:|---:|
+| **Colour + texture (13)** | **83.2%** (82.7–84.0) | **25** | 79.7% |
+| Colour + texture + ORB (63) | 79.5% (78.7–80.7) | 31 | 75.0% |
+| ORB only (50) | 48.3% (47.3–49.3) | 78 | 57.0% |
+| *ResNet18, for reference (Step 7)* | *96.0%* | *6* | *100%* |
+| *YOLOv8n + CLAHE, best (Step 8d)* | *97.9%* | *3* | – |
+
+Per class, colour + texture (majority vote):
+
+| Class | Precision | Recall |
+|---|---:|---:|
+| Healthy | 72.9% | 86.0% |
+| Powdery | 89.4% | 84.0% |
+| Rust | 90.9% | 80.0% |
+
+Confusion matrix (rows = actual, columns = predicted):
+
+| | Healthy | Powdery | Rust |
+|---|---:|---:|---:|
+| **Healthy** | 43 | 4 | 3 |
+| **Powdery** | 7 | 42 | 1 |
+| **Rust** | 9 | 1 | 40 |
+
+### Finding 1 — ORB does not help
+
+ORB alone reaches 48%, only modestly above the 33% of guessing. Adding it to
+the colour and texture features **lowers** accuracy from 83.2% to 79.5%: it
+fixes 5 images and breaks 11 (exact McNemar p = 0.21, so the drop is not
+significant either, but there is no sign of a gain). ORB still takes 47% of the
+forest's feature importance, which shows the trees spend splits on it: 50 noisy
+columns dilute 13 informative ones. ORB describes local corner patterns, and
+these are similar on all leaves whatever the disease. **Colour + texture
+without ORB is the classical model used below.**
+
+### Finding 2 — the features do what they were designed for
+
+The most important features (mean importance over 5 seeds) are
+`low_saturation_fraction` (0.19), the reddish end of the hue histogram
+`hue_hist_7` (0.13), `green_fraction` (0.12), `laplacian_variance` (0.08) and
+`rust_fraction` (0.07). The median values per class confirm the design:
+
+| Median (training set) | Healthy | Powdery | Rust |
+|---|---:|---:|---:|
+| `green_fraction` | 0.86 | 0.62 | 0.71 |
+| `low_saturation_fraction` | 0.06 | **0.32** | 0.16 |
+| `rust_fraction` | 0.0001 | 0.0009 | **0.0073** |
+| `rust_spot_count` | 1 | 1 | **8** |
+| `laplacian_variance` | 1,390 | **779** | 1,160 |
+
+![Feature box plots per class](figures/rf_feature_boxplots.png)
+
+*The six most important features, training set (1,322 images). Made with
+[`plot_feature_boxplots.py`](../usecase/plot_feature_boxplots.py) from the
+cached features. Each feature separates the class it was designed for, but the
+boxes overlap: no single feature separates all three classes.*
+
+One surprise: Powdery has the **lowest** Laplacian variance, the opposite of
+what a single example image suggested (a powdery leaf's Laplacian histogram has
+a heavier tail at full resolution). At 256x256 the fine powder grains are
+averaged away, and the whitish film instead *softens* the leaf surface and
+lowers contrast. The feature still separates the classes, but it measures
+"smooth, washed-out surface" rather than "grainy texture".
+
+### Finding 3 — the errors are images whose features look like another class
+
+Median feature values for the test images the model gets wrong, compared with
+those it gets right:
+
+| Class | Images | `low_saturation_fraction` | `rust_spot_count` | `green_fraction` |
+|---|---|---:|---:|---:|
+| Healthy | correct (43) | 0.06 | 1 | 0.86 |
+| Healthy | **wrong (7)** | **0.17** | **4** | 0.72 |
+| Powdery | correct (42) | 0.32 | 1 | 0.61 |
+| Powdery | **wrong (8)** | **0.14** | 0.5 | **0.75** |
+| Rust | correct (40) | 0.17 | 9 | 0.71 |
+| Rust | **wrong (10)** | 0.10 | **3.5** | **0.85** |
+
+- **Rust → Healthy is the classical model's largest confusion (9 images).**
+  The misclassified rust leaves have few, small pustules (median 3.5 spots
+  against 9) and are mostly green: early or mild infection.
+- **Powdery → Healthy (7)** happens on leaves with half the usual greyish
+  area: a thin or patchy coating.
+- **Healthy → Powdery/Rust (7)** happens on healthy leaves with more greyish
+  pixels (glare, pale patches) and some brownish spots.
+
+All three are **disease stage and lighting**, measured directly in the
+features. Hand-made features turn the reason for an error into something that
+can be read off, which a CNN's 512 numbers do not allow.
+
+### Finding 4 — classical vs. transfer learning, image by image
+
+| Classical (25 errors) vs. | CNN errors | Both wrong | RF wrong, CNN right | CNN wrong, RF right | McNemar p |
+|---|---:|---:|---:|---:|---:|
+| ResNet18 | 6 | 2 | 23 | 4 | 0.0003 |
+| YOLOv8n | 4 | 2 | 23 | 2 | 0.00002 |
+| YOLOv8n + CLAHE | 3 | 2 | 23 | 1 | 0.000003 |
+| ViT-B/16 | 4 | 3 | 22 | 1 | 0.000006 |
+
+**Transfer learning is clearly and significantly better**: about 4–8 times
+fewer errors, and the difference holds up under the paired test against every
+network (p < 0.001). This is the first comparison in the project that *is*
+significant; the backbones in Step 7 were all within noise of each other.
+
+The two Powdery images that defeat every CNN (`81e5fcf4`, `9ff7d2a5`, Step 7)
+**also defeat the Random Forest**. Two methods that share nothing, learned
+features from ImageNet and 13 hand-made colour measurements, fail on the same
+two images. That strengthens the case that these images are genuinely
+ambiguous (or mislabelled) rather than a weakness of any one model.
+
+The Random Forest does get a few CNN errors right (4 of ResNet18's 6, e.g.
+`89e92694` and `82c3830f`), so the two kinds of model are partly complementary.
+With 23 errors of its own, though, it is not a useful ensemble partner.
+
+### Conclusion
+
+Hand-made colour and texture features reach **83%**, far above chance and with
+features whose meaning and failures can be explained in plain terms. But they
+are 13 to 15 percentage points behind a frozen pretrained network that took no
+feature design at all, and the gap is statistically clear. The hand-made
+features capture the symptoms as designed (grey film, orange spots, green
+area), but they break down exactly where the symptoms are weak: early rust,
+thin mildew, and glare on healthy leaves. ORB keypoints add nothing.
+
+---
+
 ## Running the scripts
 
 ```bash
@@ -1366,6 +1531,8 @@ python3 experiment_variants.py      # Step 8: all preprocessing variants (~7m fi
 python3 experiment_variants.py leaf_crop   # Step 8: just one variant
 python3 experiment_variants.py --backbone yolov8n_cls   # Step 8d: all variants on YOLOv8n
 python3 experiment_variants.py --compare   # Step 8d: both backbones side by side
+cd ../usecase && venv/bin/python evaluate_rf.py  # Step 9: classical features + Random Forest (~2m first run)
+cd ../usecase && venv/bin/python plot_feature_boxplots.py  # Step 9: feature box plots (needs the cache above)
 # lowres_esrgan needs RealESRGAN_x4plus.pth (see esrgan.py) and takes ~30m on CPU
 ```
 
@@ -1405,6 +1572,7 @@ or normalisation.
 | 8c | ResNet18 (frozen), 64 px + bicubic / + ESRGAN | Plant disease | 40 | 95.1% / 95.7% (5 seeds; full resolution 96.0%) |
 | 8d | **YOLOv8n-cls (frozen) + CLAHE** | Plant disease | 40 | **97.9%** (5 seeds; YOLOv8n baseline 97.3%) |
 | 8d | ViT-B/16 (frozen) + CLAHE | Plant disease | 40 | 97.3% (5 seeds; ViT baseline 97.1%; 4 errors in both) |
+| 9 | Hand-made colour + texture features + Random Forest | Plant disease | – | 83.2% (5 seeds; + ORB: 79.5%) |
 
 ### What this project demonstrates
 
@@ -1435,6 +1603,9 @@ or normalisation.
   network, was the bottleneck (Step 7)
 - Making a saved model refuse to run with the wrong inputs: checkpoints that
   record their own recipe, and guards that check it (Step 7)
+- Measuring a classical computer-vision baseline (hand-made features + Random
+  Forest) under the same protocol, and showing with a paired test that
+  transfer learning beats it significantly (Step 9)
 - Testing classic preprocessing as controlled experiments and reporting the
   negative results too, and re-testing on a second backbone to see which
   effects survive (Step 8)
