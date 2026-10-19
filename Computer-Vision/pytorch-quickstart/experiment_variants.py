@@ -147,12 +147,51 @@ def lowres_esrgan(bgr):
     return up, False
 
 
+# Denoising: Non-Local Means with OpenCV's documented default strength, fixed
+# in advance. Applied to the 1024 px working copy, before the model's resize.
+DENOISE_H = 10
+DENOISE_TEMPLATE = 7
+DENOISE_SEARCH = 21
+
+
+def denoise(bgr):
+    """Non-Local Means averages each pixel with similar-looking patches nearby,
+    which removes sensor noise while keeping edges. The risk for this dataset is
+    that fine powdery mildew grains look like noise and get smoothed away."""
+    return cv.fastNlMeansDenoisingColored(bgr, None, DENOISE_H, DENOISE_H,
+                                          DENOISE_TEMPLATE, DENOISE_SEARCH), False
+
+
+# Edge map: the same Canny settings as ../usecase/canny_edges.py.
+CANNY_SHORT = 256
+CANNY_BLUR = (5, 5)
+CANNY_LOW, CANNY_HIGH = 50, 150
+
+
+def canny_edges(bgr):
+    """Replace the image by its Canny edge map (white edges on black, copied to
+    3 channels so every backbone accepts it). This removes all colour, so it
+    tests whether shape and texture alone are enough.
+
+    Edges are computed at CANNY_SHORT px, close to what the model sees. Edges
+    found at 1024 px are 1 px wide and would be averaged into faint grey by the
+    later resize to 224."""
+    h, w = bgr.shape[:2]
+    s = CANNY_SHORT / min(h, w)
+    small = cv.resize(bgr, (round(w * s), round(h * s)), interpolation=cv.INTER_AREA)
+    gray = cv.GaussianBlur(cv.cvtColor(small, cv.COLOR_BGR2GRAY), CANNY_BLUR, 0)
+    edges = cv.Canny(gray, CANNY_LOW, CANNY_HIGH)
+    return cv.cvtColor(edges, cv.COLOR_GRAY2BGR), False
+
+
 VARIANTS = {
     "baseline": baseline,
     "leaf_crop": leaf_crop,
     "clahe": clahe,
     "lowres_bicubic": lowres_bicubic,
     "lowres_esrgan": lowres_esrgan,
+    "denoise": denoise,
+    "canny_edges": canny_edges,
 }
 
 

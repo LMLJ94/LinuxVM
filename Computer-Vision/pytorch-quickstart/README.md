@@ -973,7 +973,7 @@ harness fixes both weaknesses:
    just the baseline's errors, matters: images selected for being badly wrong
    tend to look better under *any* change (regression to the mean).
 
-Everything else is fixed (8a–8c; 8d repeats everything on YOLOv8n): frozen ResNet18, linear head, 40 epochs, Adam 1e-3,
+Everything else is fixed (8a–8c; 8d repeats everything on YOLOv8n; 8e–8f were run on both from the start): frozen ResNet18, linear head, 40 epochs, Adam 1e-3,
 followed by the standard `Resize(256)` → `CenterCrop(224)` → `Normalize`.
 
 A note on the baseline: the backbone is ResNet18 (Step 7), so its six errors
@@ -1333,6 +1333,99 @@ is a hypothesis about another, not a fact. ESRGAN's calyx error survives the
 change from ResNet18 to YOLOv8n (ESRGAN was not run on ViT). CLAHE's benefit holds for both CNNs
 but not for ViT: it depends on the type of network, not just on the images.
 
+### 8e — Denoising (Non-Local Means)
+
+**Hypothesis, before testing:** no gain. The 12 MP photos are shrunk ~18x on
+the way to 224 px, and downscaling already averages away sensor noise. The
+risk is the opposite: a denoiser may treat the fine grains of powdery mildew
+as noise and smooth them away.
+
+**Implementation** (`denoise()` in [`experiment_variants.py`](experiment_variants.py)):
+OpenCV's Non-Local Means for colour images (`fastNlMeansDenoisingColored`),
+at the documented default strength `h = 10` (template 7, search window 21),
+fixed in advance and applied to the 1024 px working copy. Non-Local Means
+replaces each pixel with an average of similar-looking patches nearby, so it
+keeps strong edges while flattening fine, irregular detail. ~0.6 s per image.
+
+![Denoising and Canny preview](figures/denoise_canny_preview.jpg)
+
+*Per row: the model's input in the baseline and after denoising, then a zoom
+into the centre of the 1024 px copy before and after denoising, and finally
+the Canny edge map that 8f feeds the model. The zooms show the risk come true:
+on `9ff7d2a5` and `81e5fcf4`, the two Powdery images every backbone gets wrong,
+the whitish mildew grains and the fine vein network are wiped out. At the
+model's input size the difference is barely visible.*
+
+**Result:**
+
+| Backbone | Test, mean (min–max) | Errors | Fixed | New | Confidence change | p | Powdery |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| ResNet18 | 95.7% (95.3–96.0) | 6 | 1 | 1 | −0.79 pp | 0.89 | −2.16 pp |
+| YOLOv8n | 96.7% (96.7–96.7) | 5 | 0 | 1 | −0.60 pp | 0.05 | −0.71 pp |
+
+**No gain, and a small loss concentrated on Powdery.** Accuracy drops slightly
+on both backbones, confidence in the correct class falls on both, and Powdery
+loses most on ResNet18 (−2.2 pp). The overall change is not significant on
+ResNet18 (p = 0.89) and borderline on YOLOv8n (p = 0.05; 57 images up, 72
+down). The new YOLOv8n error is the borderline Rust image `89e92694`; the new
+ResNet18 error is a Powdery image (`87badaa4`, Powdery → Healthy), the
+predicted direction.
+
+**Conclusion.** The photos are not noisy at the resolution the model sees, so
+there is nothing for denoising to remove, and the one thing it does remove,
+fine surface texture, is evidence for the weakest class. Denoising belongs in
+pipelines for noisy inputs (low light, high ISO, small sensors), not here.
+
+### 8f — Edge map as input (Canny)
+
+**Hypothesis, before testing:** clearly worse. An edge map discards colour,
+the main cue for rust (orange) and an important one for mildew (greyish). The
+experiment measures how much of the classification is left with shape and
+texture alone.
+
+**Implementation** (`canny_edges()` in [`experiment_variants.py`](experiment_variants.py)):
+the same settings as [`../usecase/canny_edges.py`](../usecase/canny_edges.py),
+Gaussian blur 5x5 and thresholds 50/150. The edges are computed after shrinking
+to 256 px on the short side, close to what the model sees: Canny edges are 1
+pixel wide, and edges found at 1024 px would be averaged into faint grey by the
+model's resize. The result (white edges on black) is copied into three
+channels so every backbone accepts it.
+
+The preview above (last column) already shows the problem. At this
+resolution the leaf surface is almost empty: only the outline, the main veins
+and the background clutter remain. The dense mildew speckle that Canny finds
+at full resolution (`../canny_comparison.png`) does not survive, and a rust
+pustule becomes a small ring that looks like any other edge.
+
+**Result:**
+
+| Backbone | Test, mean (min–max) | Errors | Fixed | New | Confidence change | p | Validation |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| ResNet18 | 66.7% (63.3–70.0) | 49 | 1 | 44 | −37.1 pp | 8 × 10⁻²⁴ | 79.7% |
+| YOLOv8n | 78.9% (78.0–79.3) | 31 | 1 | 28 | −27.5 pp | 8 × 10⁻²⁴ | 88.0% |
+
+**By far the largest effect in Step 8, and strongly negative**: ResNet18
+drops 29 points to 66.7%, YOLOv8n 18 points to 78.9%, and confidence in the
+correct class falls on 144 and 145 of the 150 images. The errors are spread
+over all three classes (ResNet18: 15 Healthy, 16 Powdery, 18 Rust), so no
+single class carries the loss: without colour, every class becomes hard.
+
+Two observations are worth keeping:
+
+- **Shape and texture alone still carry information.** 67–79% is well above
+  the 33% of guessing, so the networks find something in the outlines, vein
+  patterns and spot rings. It is just far from enough.
+- **Edges-only deep features are worse than 13 hand-made colour features.**
+  YOLOv8n on edge maps (78.9%) scores below the classical Random Forest on
+  colour and texture (83.2%, Step 9). Colour is the most important single
+  source of information in this task, more important than the choice between
+  hand-made and learned features once colour is removed.
+
+**Conclusion.** Edge detection is useful for *visualising* structure (Step 9's
+figures, `../canny_comparison.png`), but as model input it throws away the
+information that matters most. It would make sense only as an *extra* input
+channel next to the colour image, not as a replacement.
+
 ### Status of the techniques
 
 | Technique | Status | Effect |
@@ -1340,8 +1433,8 @@ but not for ViT: it depends on the type of network, not just on the images.
 | Thresholding + cropping | **Tested (8a, 8d)** | No reliable effect: +0.6 pp confidence on ResNet18, none on YOLOv8n (and one new error) |
 | CLAHE | **Tested (8b, 8d)** | **Small positive effect on both CNNs**: 1 fixed, 0 new each; confidence +1.0 pp (ResNet18) and +0.5 pp (YOLOv8n). YOLOv8n + CLAHE = 97.9%, best result. **No benefit on ViT-B/16** (1 fixed, 1 new; −0.56 pp, n.s.) |
 | Background blur (GrabCut mask) | Candidate; needs the shortcut check | – |
-| Denoising | Planned | – |
-| Edge map as input | Planned | – |
+| Denoising (Non-Local Means) | **Tested (8e)** | No gain on either backbone (−0.8 / −0.6 pp confidence, n.s. / borderline); smooths away mildew texture, Powdery loses most |
+| Edge map as input (Canny) | **Tested (8f)** | **Strongly negative**: ResNet18 66.7%, YOLOv8n 78.9%. Removing colour removes the main cue |
 | Super-resolution, ESRGAN (64 px simulation) | **Tested (8c, 8d)** | Not relevant: images are already high-resolution. In the simulation it helps ResNet18 somewhat but does worse than bicubic on YOLOv8n, and recreates the calyx error on both |
 
 ---
@@ -1572,6 +1665,8 @@ or normalisation.
 | 8c | ResNet18 (frozen), 64 px + bicubic / + ESRGAN | Plant disease | 40 | 95.1% / 95.7% (5 seeds; full resolution 96.0%) |
 | 8d | **YOLOv8n-cls (frozen) + CLAHE** | Plant disease | 40 | **97.9%** (5 seeds; YOLOv8n baseline 97.3%) |
 | 8d | ViT-B/16 (frozen) + CLAHE | Plant disease | 40 | 97.3% (5 seeds; ViT baseline 97.1%; 4 errors in both) |
+| 8e | ResNet18 / YOLOv8n (frozen) + Non-Local Means denoising | Plant disease | 40 | 95.7% / 96.7% (5 seeds; baselines 96.0% / 97.3%) |
+| 8f | ResNet18 / YOLOv8n (frozen) on Canny edge maps | Plant disease | 40 | 66.7% / 78.9% (5 seeds) |
 | 9 | Hand-made colour + texture features + Random Forest | Plant disease | – | 83.2% (5 seeds; + ORB: 79.5%) |
 
 ### What this project demonstrates
